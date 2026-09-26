@@ -46,3 +46,11 @@ The midnight transition is covered by date-boundary/DST tests and the same revea
 - Removed private-reply deletion. The selector becomes “Guess submitted.”; Discord DELETE and bulk-delete calls are blocked before any network request. Commands are upserted individually rather than bulk replaced.
 - Posted and fetched one real randomly sampled practice puzzle in the private test channel. Confirmed the Guess button, application identity, and channel. Verified command registration and admin permissions, plus Worker health. No posts were sent to the future public channel.
 - All 41 automated tests passed. User interaction testing in The Cathedral remains for the user; no server UI automation was performed.
+
+## September 26: context, member browsing, three guesses
+
+- Enabled the application's limited Server Members intent through the official API; verified the Cathedral member-list endpoint returns 76 human members. Picker uses sorted nickname/display-name options in groups of at most 25, with pagination only above 100 remaining members.
+- New rounds filter command-like targets and retain short anonymous before/after excerpts. Context mentions are redacted, URLs reduced to `[link]`, and the target is explicitly marked. Existing rounds retain their original one-guess limit.
+- Added atomic attempt records with unique interaction/person constraints, expected-attempt validation, and a trigger producing one final outcome only at success/exhaustion. Closing a round finalizes unfinished participants. Public results and recaps include attempt squares; daily stats count final outcomes, not individual attempts.
+- All 45 tests passed, including stale/double submissions, duplicate names, third-miss finalization, early success, close/expiry, old-round compatibility, 76-member coverage, command filtering, context placement, and no-deletion enforcement.
+- Created a fresh practice round using real Cathedral history and verified its posted message through the API: before and after context, target arrow, and Guess button are present. Interactive visual testing is left to the user because server UI automation is prohibited. No existing messages were deleted; public posting and scheduled daily rounds remain disabled.

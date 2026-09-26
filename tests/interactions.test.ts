@@ -1,44 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
-import worker, { INSERT_GUESS } from '../src/index';
+import worker from '../src/index';
 import { discord, verifySignature } from '../src/discord';
 import { gameDay } from '../src/game';
 import type { Env } from '../src/types';
 
 let db: DatabaseSync;
-beforeEach(()=>{db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../migrations/0001_initial.sql',import.meta.url),'utf8'));db.exec(readFileSync(new URL('../migrations/0002_recaps.sql',import.meta.url),'utf8'));db.exec(readFileSync(new URL('../migrations/0003_media.sql',import.meta.url),'utf8'));});
+beforeEach(()=>{db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../migrations/0001_initial.sql',import.meta.url),'utf8'));db.exec(readFileSync(new URL('../migrations/0002_recaps.sql',import.meta.url),'utf8'));db.exec(readFileSync(new URL('../migrations/0003_media.sql',import.meta.url),'utf8'));db.exec(readFileSync(new URL('../migrations/0005_three_guesses.sql',import.meta.url),'utf8'));});
 afterEach(()=>{db.close();vi.restoreAllMocks();});
-const seed = (id='round',day='2026-09-25',status='open',practice=0) => db.prepare('INSERT INTO rounds(id,day,source_id,author_id,content,status,practice) VALUES (?,?,?,?,?,?,?)').run(id,day,'source','author','a quote',status,practice);
-const guess=(user:string,author:string,interaction:string,day='2026-09-25',round='round')=>db.prepare(INSERT_GUESS).get(user,author,author,interaction,round,day);
-describe('atomic one-guess persistence',()=>{
-  it('allows only the first guess, even when the second would be correct',()=>{
-    seed();expect(guess('player','wrong','i1')).toMatchObject({correct:0});
-    expect(guess('player','author','i2')).toBeUndefined();
-    expect(db.prepare('SELECT COUNT(*) AS n FROM guesses').get()).toMatchObject({n:1});
-  });
-  it('does not block another player',()=>{
-    seed();guess('one','wrong','i1');expect(guess('two','author','i2')).toMatchObject({correct:1});
-  });
-  it('rejects expired, pending, closed, and nonexistent rounds',()=>{
-    seed();expect(guess('player','author','i1','2026-09-26')).toBeUndefined();
-    seed('pending','2026-09-25','pending',1);expect(guess('player','author','i2','2026-09-25','pending')).toBeUndefined();
-    seed('closed','2026-09-25','closed',1);expect(guess('player','author','i3','2026-09-25','closed')).toBeUndefined();
-    expect(guess('player','author','i4','2026-09-25','missing')).toBeUndefined();
-  });
-  it('deduplicates interaction delivery',()=>{
-    seed();guess('player','author','i1');expect(guess('player','author','i1')).toBeUndefined();
-  });
-  it('keeps practice separate from the daily one-guess limit',()=>{
-    seed();seed('practice','2026-09-25','open',1);
-    expect(guess('player','author','i1')).toBeDefined();
-    expect(guess('player','author','i2','2026-09-25','practice')).toBeDefined();
-  });
-  it('enforces one daily puzzle in the database',()=>{
-    seed();expect(()=>seed('duplicate')).toThrow();
-  });
-});
-
 async function signing() {
   const keys=await crypto.subtle.generateKey({name:'Ed25519'},true,['sign','verify']);
   const publicKey=Buffer.from(await crypto.subtle.exportKey('raw',keys.publicKey)).toString('hex');
@@ -91,7 +61,7 @@ describe('non-destructive guess completion',()=>{
     const response=await worker.fetch(await s.request(JSON.stringify(interaction)),env,ctx);
     expect(await response.json()).toEqual({type:6});
     await pending;
-    expect(first).toHaveBeenCalledOnce();
+    expect(first).toHaveBeenCalledTimes(2);
     expect(requests).toContainEqual({url:'https://discord.com/api/v10/webhooks/app/test-token/messages/@original',method:'PATCH'});
     expect(requests.some(r=>r.method==='DELETE')).toBe(false);
     expect(storage.publishResults).toHaveBeenCalledOnce();

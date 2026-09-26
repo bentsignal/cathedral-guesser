@@ -3,6 +3,7 @@ import { discord, DiscordError, noMentions, nonce } from './discord';
 import { eligibleMessage, gameDay, roundPayload, recapPages, resultPayload, recapPayload } from './game';
 
 import { parseMedia, validateMedia } from './media';
+import {finalizeUnfinished} from './attempts';
 import { sampleCandidates } from './sampling';
 
 export async function state(env: Env, key: string): Promise<string | null> {
@@ -57,9 +58,16 @@ export async function createRound(env: Env, id?: string, sourceId?: string): Pro
       if(sourceId)return null;
       continue;
     }
+    const before=await discord<Message[]>(env,`/channels/${env.SOURCE_CHANNEL_ID}/messages?before=${live.id}&limit=1`);
+    const after=await discord<Message[]>(env,`/channels/${env.SOURCE_CHANNEL_ID}/messages?after=${live.id}&limit=1`);
+    const contextText=(m?:Message)=>m?((m.content||'').replace(/https?:\/\/[^\s<>]+/g,'[link]').slice(0,260)+(m.content.length>260?'…':'') || (m.attachments?.length?'[Attachment]':'')):undefined;
+    const context=JSON.stringify({before:contextText(before[0]),after:contextText(after[0])});
+    // Reserve room for context without disqualifying a long target message.
+    const preview={id:roundId,day,practice:id?1:0,source_id:live.id,author_id:live.author.id,content:live.content,media_json:JSON.stringify(media),context_json:context,guess_limit:3,status:'pending',discord_id:null,revealed:0};
+    const safeContext=roundPayload(preview).content.length<=2000?context:'{}';
     await env.DB.batch([
-      env.DB.prepare('INSERT OR IGNORE INTO rounds(id,day,practice,source_id,author_id,content,media_json) VALUES (?,?,?,?,?,?,?)')
-        .bind(roundId,day,id?1:0,live.id,live.author.id,live.content,JSON.stringify(media)),
+      env.DB.prepare('INSERT OR IGNORE INTO rounds(id,day,practice,source_id,author_id,content,media_json,context_json,guess_limit) VALUES (?,?,?,?,?,?,?,?,3)')
+        .bind(roundId,day,id?1:0,live.id,live.author.id,live.content,JSON.stringify(media),safeContext),
     ]);
     return env.DB.prepare('SELECT * FROM rounds WHERE id=?').bind(roundId).first<Round>();
   }
@@ -83,6 +91,7 @@ export async function revealOldRounds(env: Env) {
   await env.DB.prepare("UPDATE rounds SET status='closed' WHERE day < ? AND status!='closed'").bind(day).run();
   const old = await env.DB.prepare("SELECT * FROM rounds WHERE status='closed' AND revealed=0 LIMIT 1").all<Round>();
   for (const round of old.results) {
+    await finalizeUnfinished(env,round.id);
     if (round.discord_id) {
       const counts = await env.DB.prepare('SELECT COUNT(*) AS total, COALESCE(SUM(correct),0) AS correct FROM guesses WHERE round_id=?').bind(round.id).first<{total:number;correct:number}>();
       try {
@@ -93,8 +102,8 @@ export async function revealOldRounds(env: Env) {
       } catch (error) { if (!(error instanceof DiscordError && error.status===404)) throw error; }
     }
     {
-      const players=await env.DB.prepare('SELECT user_id,correct FROM guesses WHERE round_id=? ORDER BY correct DESC,created_at,user_id').bind(round.id).all<{user_id:string;correct:number}>();
-      const pages=recapPages(round.practice ? `${round.day} · Practice` : round.day,players.results).map((content,page)=>({content,page}));
+      const players=await env.DB.prepare('SELECT user_id,correct,attempts_used FROM guesses WHERE round_id=? ORDER BY correct DESC,attempts_used,created_at,user_id').bind(round.id).all<{user_id:string;correct:number;attempts_used:number}>();
+      const pages=recapPages(round.practice ? `${round.day} · Practice` : round.day,players.results,round.guess_limit||1).map((content,page)=>({content,page}));
       await env.DB.prepare(`INSERT OR IGNORE INTO recaps(round_id,page,content)
         SELECT ?,json_extract(value,'$.page'),json_extract(value,'$.content') FROM json_each(?)`).bind(round.id,JSON.stringify(pages)).run();
     }

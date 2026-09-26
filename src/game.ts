@@ -3,8 +3,11 @@ import { links, parseMedia, supportedAttachments } from './media';
 export function gameDay(now: Date, timeZone: string): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
 }
+export function isCommand(content:string):boolean {
+  return /^(?:\/|[!?.$;~][a-z][\w-]*(?:\s|$)|<@!?\d+>\s*[a-z])/i.test(content.trim());
+}
 export function eligibleMessage(message: Message): boolean {
-  return !message.author.bot && !message.webhook_id && [0, 19].includes(message.type)
+  return !isCommand(message.content) && !message.author.bot && !message.webhook_id && [0, 19].includes(message.type)
     && (message.content.trim().length > 0 || supportedAttachments(message).length > 0)
     && message.content.length <= 3500 && displayQuote(message.content).length <= 3500;
 }
@@ -20,25 +23,31 @@ export function roundPayload(round: Round, revealed = false, _total = 0, _correc
   const media=parseMedia(round.media_json);
   const quote=displayQuote(round.content);
   const videoLinks=(media.attachments||[]).filter(a=>a.content_type?.startsWith('video/')).map(a=>a.url);
-  const images=(media.attachments||[]).filter(a=>a.content_type?.startsWith('image/')).map(a=>({image:{url:a.url}}));
-  const long=quote.length>1400;
+  const images=(media.attachments||[]).filter(a=>a.content_type?.startsWith('image/')).map(a=>({...(round.context_json&&round.context_json!=='{}'?{title:'➡ Guess this image'}:{}),image:{url:a.url}}));
+  const long=quote.length>900;
   const header=`**${round.day}**${round.practice?' · Practice':''}`;
   const body=long?links(round.content).join('\n'):quote;
   // Quote plain text visually; leave links unwrapped for Discord's native previews.
   const excerpt=body && !links(round.content).length && !long?body.split('\n').map(line=>`> ${line}`).join('\n'):body;
-  const content=[header,excerpt,...videoLinks,
+  let context:{before?:string;after?:string}={};try{context=JSON.parse(round.context_json||'{}');}catch{}
+  const contextLine=(label:string,text?:string)=>text?`-# ${label}\n${displayQuote(text).split('\n').map(line=>`> ${line}`).join('\n')}`:'';
+  const hasContext=!!(context.before||context.after);
+  const content=[header,contextLine('Before',context.before),hasContext?'**➡ Guess this message**':'',excerpt,...videoLinks,contextLine('After',context.after),
     revealed?`**Sent by** <@${round.author_id}> · [Original message](https://discord.com/channels/${guildId}/${sourceChannel}/${round.source_id})`:'**Who sent it?**'].filter(Boolean).join('\n\n');
   return {
     content,
     allowed_mentions: { parse: [] },
-    embeds:[...(long?[{description:quote}]:[]),...images],
+    embeds:[...(long?[{title:'➡ Guess this message',description:quote}]:[]),...images],
     components: revealed ? [] : [{ type: 1, components: [{type: 2, style: 1, label: 'Guess', custom_id: `play:${round.id}`}]}],
   };
 }
-export function resultPayload(guess: Guess, round: Round) {
-  return {allowed_mentions:{parse:[]},embeds:[{description:`<@${guess.user_id}> ${guess.correct?'got it right.':'got it wrong.'}`,footer:{text:roundTitle(round)},color:guess.correct?0x57b382:0xca7a76}]};
+export function resultSquares(correct:number,used=1,limit=3):string {
+  return '🟥'.repeat(Math.max(0,used-(correct?1:0)))+(correct?'🟩':'')+'⬜'.repeat(Math.max(0,limit-used));
 }
-export function recapPages(_day: string, players: {user_id:string;correct:number}[]): string[] {
+export function resultPayload(guess: Guess, round: Round) {
+  return {allowed_mentions:{parse:[]},embeds:[{description:`<@${guess.user_id}> ${guess.correct?'got it right.':'got it wrong.'}${(round.guess_limit||1)>1?`\n${resultSquares(guess.correct,guess.attempts_used||1,round.guess_limit)} ${guess.correct?guess.attempts_used||1:'X'}/${round.guess_limit}`:''}`,footer:{text:roundTitle(round)},color:guess.correct?0x57b382:0xca7a76}]};
+}
+export function recapPages(_day: string, players: {user_id:string;correct:number;attempts_used?:number}[],limit=1): string[] {
   const correct=players.filter(p=>p.correct===1),wrong=players.filter(p=>p.correct!==1);
   const pages:string[]=[];let page='';
   for(const [label,group] of [['Correct',correct],['Incorrect',wrong]] as const) {
@@ -46,7 +55,7 @@ export function recapPages(_day: string, players: {user_id:string;correct:number
     if(page.length+heading.length+30>3500){pages.push(page);page='';}
     page+=(page?'\n\n':'')+heading;
     for(const player of group) {
-      const line=`\n<@${player.user_id}>`;
+      const line=`\n<@${player.user_id}>${limit>1?` · ${resultSquares(player.correct,player.attempts_used||1,limit)}`:''}`;
       if(page.length+line.length>3500){pages.push(page);page=heading;}
       page+=line;
     }

@@ -1,42 +1,34 @@
 import type { Env, Interaction, Round, Guess } from './types';
 import { discord, noMentions, verifySignature } from './discord';
-import { gameDay } from './game';
+import {INSERT_ATTEMPT} from './attempts';
+import {roster,memberControls} from './members';
+import { gameDay, resultSquares } from './game';
 import { createRound, currentMember, maintenance, publishResults, publishRound, publishRecaps, revealOldRounds, state, withLease } from './storage';
 
 const reply = (content: string, components: unknown[] = []) => ({content,components,allowed_mentions:noMentions});
 async function editReply(env: Env, i: Interaction, body: unknown) {
   await discord(env,`/webhooks/${env.DISCORD_APPLICATION_ID}/${i.token}/messages/@original`,'PATCH',body);
 }
-async function showSelector(env: Env, i: Interaction, roundId: string) {
+async function showSelector(env: Env, i: Interaction, roundId: string,page=0,notice='') {
   const round = await env.DB.prepare('SELECT * FROM rounds WHERE id=?').bind(roundId).first<Round>();
-  if (!round || round.status !== 'open' || round.day !== gameDay(new Date(),env.TIME_ZONE)) {
-    return reply('This round is closed or not ready yet. Look for today’s puzzle in the game channel.');
-  }
+  if (!round || round.status !== 'open' || round.day !== gameDay(new Date(),env.TIME_ZONE)) return reply('This round is closed.');
   const existing = await env.DB.prepare('SELECT * FROM guesses WHERE round_id=? AND user_id=?').bind(roundId,i.member!.user.id).first<Guess>();
-  if (existing) return reply(`You already used your one guess. ${existing.correct?'Correct.':'Incorrect.'}`);
-  return reply('**Who sent it?**',[
-    {type:1,components:[{type:5,custom_id:`guess:${round.id}`,placeholder:'Choose someone',min_values:1,max_values:1}]},
-  ]);
+  if (existing) return reply('Your result is in.');
+  const attempts=await env.DB.prepare('SELECT guessed_id FROM attempts WHERE round_id=? AND user_id=? ORDER BY attempt').bind(roundId,i.member!.user.id).all<{guessed_id:string}>();
+  const used=attempts.results.length,limit=round.guess_limit||1;
+  const controls=memberControls(await roster(env),round.id,used,attempts.results.map(a=>a.guessed_id),page);
+  return reply([notice,used?`${resultSquares(0,used,limit)} · ${limit-used} ${limit-used===1?'guess':'guesses'} left`:'','**Who sent it?**'].filter(Boolean).join('\n\n'),controls);
 }
-export const INSERT_GUESS = `INSERT INTO guesses(round_id,user_id,guessed_id,correct,interaction_id)
-  SELECT id,?,?,CASE WHEN author_id=? THEN 1 ELSE 0 END,? FROM rounds
-  WHERE id=? AND day=? AND status='open'
-  ON CONFLICT DO NOTHING RETURNING *`;
-async function submitGuess(env: Env, i: Interaction, roundId: string) {
+async function submitGuess(env: Env, i: Interaction, roundId: string,expected=0) {
   const guessed = i.data?.values?.[0];
-  if (!guessed || !/^\d{17,20}$/.test(guessed) || i.data?.values?.length!==1) return reply('Choose one server member.');
-  if (!(await currentMember(env,guessed))) {
-    const selector = await showSelector(env,i,roundId);
-    return {...selector,content:'That person is not a current human member of this server. Your guess has not been used. Choose someone else.'};
-  }
+  if (!guessed || !/^\d{17,20}$/.test(guessed) || i.data?.values?.length!==1 || !Number.isInteger(expected) || expected<0 || expected>2) return reply('Choose one server member.');
+  if (!(await currentMember(env,guessed))) return showSelector(env,i,roundId,0,'That person is no longer in the server. Your guess was not used.');
   const userId = i.member!.user.id;
-  const saved = await env.DB.prepare(INSERT_GUESS)
-    .bind(userId,guessed,guessed,i.id,roundId,gameDay(new Date(),env.TIME_ZONE)).first<Guess>();
-  if (!saved) {
-    const previous = await env.DB.prepare('SELECT * FROM guesses WHERE round_id=? AND user_id=?').bind(roundId,userId).first<Guess>();
-    return reply(previous ? `Your guess was already locked in. ${previous.correct?'🟩 Correct!':'🟥 Incorrect.'} You get one guess per round.` : 'This round has ended. Your guess was not recorded.');
-  }
-  return null;
+  const saved = await env.DB.prepare(INSERT_ATTEMPT)
+    .bind(userId,guessed,expected,guessed,i.id,roundId,gameDay(new Date(),env.TIME_ZONE),expected,userId,expected,userId).first<{attempt:number;correct:number}>();
+  const finished=await env.DB.prepare('SELECT * FROM guesses WHERE round_id=? AND user_id=?').bind(roundId,userId).first<Guess>();
+  if(finished)return reply('Guess submitted.');
+  return showSelector(env,i,roundId,0,saved?'Not quite.':'That selection was already handled.');
 }
 function isAdmin(i: Interaction) {
   const permissions = BigInt(i.member?.permissions || '0');
@@ -45,7 +37,7 @@ function isAdmin(i: Interaction) {
 async function command(env: Env, i: Interaction) {
   const sub = i.data?.options?.[0]?.name || 'play';
   if (sub==='play') return showSelector(env,i,gameDay(new Date(),env.TIME_ZONE));
-  if (sub==='help') return reply('**Cathedral Guesser**\nEvery day at midnight Eastern, a historical message becomes a new puzzle. Click **Guess**, then pick a current server member. Selection is final: one guess per round.\n\nRight/wrong results are public; your selection stays private. The author and original message are revealed when the day ends.\n\n`/guesser stats` · your record\n`/guesser leaderboard` · server standings');
+  if (sub==='help') return reply('**Cathedral Guesser**\nEvery day at midnight Eastern, a historical message becomes a new puzzle. Click **Guess**, then pick a current server member. You have three guesses per round. The arrow marks the target; neighboring messages provide context.\n\nYour result is posted when you get it right or use all three guesses. Names you choose stay private. The author and original message are revealed when the day ends.\n\n`/guesser stats` · your record\n`/guesser leaderboard` · server standings');
   if (sub==='stats') {
     const stats = await env.DB.prepare(`SELECT COUNT(*) AS played, COALESCE(SUM(g.correct),0) AS wins FROM guesses g
       JOIN rounds r ON r.id=g.round_id WHERE g.user_id=? AND r.practice=0`).bind(i.member!.user.id).first<{played:number;wins:number}>();
@@ -97,15 +89,13 @@ async function handle(env: Env, i: Interaction) {
     if (i.type===2) body=await command(env,i);
     else {
       const [action,...parts]=(i.data?.custom_id||'').split(':');
-      const id=parts.join(':');
+      const id=parts[0];
       if (action==='play') body=await showSelector(env,i,id);
-      else if (action==='guess') body=await submitGuess(env,i,id);
+      else if (action==='guess') body=await submitGuess(env,i,id,Number(parts[1]||0));
+      else if (action==='members') body=await showSelector(env,i,id,Number(parts[1]||0));
       else body=reply('That control is no longer supported. Try `/guesser play`.');
     }
-    if(body===null) {
-      // Preserve the private message: this deployment must never delete messages.
-      await editReply(env,i,reply('Guess submitted.'));
-    } else await editReply(env,i,body);
+    await editReply(env,i,body);
     if (i.data?.custom_id?.startsWith('guess:')) {
       try { await publishResults(env); }
       catch { console.error('Public result delivery deferred to scheduled retry'); }
@@ -136,7 +126,7 @@ export default {
     ctx.waitUntil(handle(env,interaction));
     // Guess controls exist only in ephemeral messages. Update that private message
     // and remove the selector after submission; never edit the shared puzzle here.
-    return Response.json(interaction.data?.custom_id?.startsWith('guess:') ? {type:6} : {type:5,data:{flags:64}});
+    return Response.json(/^(guess|members):/.test(interaction.data?.custom_id||'') ? {type:6} : {type:5,data:{flags:64}});
   },
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(maintenance(env).catch(error=> {

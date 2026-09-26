@@ -1,18 +1,19 @@
 # Cathedral Guesser
 
-One message. One guess. Who sent it?
+One message. Three guesses. Who sent it?
 
 A Discord-native daily guessing game on **Cloudflare Workers + D1**. No always-on server or Gateway connection is required.
 
 ## Playing
 
-Every day at **midnight America/New_York** (including daylight saving changes), the bot posts a random historical message, image, video, or link. Click **Guess** to open your private member selector. Selecting a name submits your one and only answer.
+Every day at **midnight America/New_York** (including daylight saving changes), the bot posts a random historical message, image, video, or link. Click **Guess** to open your private member selector. Selecting a name uses one attempt.
 
-- Each current human server member can guess once per puzzle.
-- The private selector is replaced by “Guess submitted.” after answering; the bot never deletes the message. Everyone else can still play.
-- The bot posts a public right/wrong result without revealing the guessed name or author.
+- Each player gets up to three guesses; a correct answer ends their round.
+- The picker lists all current human members alphabetically in groups of 25 (up to 100 per page). Incorrect guesses show private progress and remove the chosen name. After finishing, the private selector becomes “Guess submitted.”; no message is deleted.
+- A public result appears only after a correct answer or the third miss, e.g. `🟥🟩⬜ 2/3`. Guessed names stay private.
 - The nightly recap lists **everyone who played**, with all correct players first and all incorrect players afterward. Long recaps are paginated.
 - At the next reset, yesterday’s original post reveals the author, a link to the source message.
+- Each new puzzle includes short anonymous excerpts of the immediately preceding and following messages, with an arrow marking the target. Context links are shown as `[link]`, and attachments as `[Attachment]`. Command-like targets (slash commands and common bot prefixes) are excluded.
 - Quotes redact user/role and channel mentions; they never ping anyone. Links remain clickable.
 - `/guesser-admin practice` creates an independent practice round. Practice never affects daily standings.
 
@@ -35,7 +36,7 @@ Administrative commands live under `/guesser-admin` and are hidden by default fr
 
 Discord delivers signed HTTP interactions to `/interactions`. The Worker verifies Ed25519 signatures and rejects stale or mismatched requests, immediately acknowledges accepted interactions, then completes private responses asynchronously.
 
-D1 holds selected puzzles, guesses, a cached history start date, search cooldowns, and short-lived maintenance locks. It does not keep a copy of the source channel. A unique `(round_id, user_id)` key plus a conditional insert enforces the one-guess rule atomically. Buttons never encode the author. Saved guesses are authoritative even if Discord temporarily fails to deliver the confirmation.
+D1 holds selected puzzles, guesses, a cached history start date, search cooldowns, and short-lived maintenance locks. It does not keep a copy of the source channel. Atomic attempt inserts validate the expected attempt count, reject repeat names and stale controls, and stop after a correct answer or three misses. A database trigger creates exactly one final result; incomplete players are recorded as incorrect at close. Buttons never encode the author. Saved guesses are authoritative even if Discord temporarily fails to deliver the confirmation.
 
 A five-minute Cron Trigger retries unpublished results, closes old rounds, and posts the current daily puzzle if needed. Once the daily puzzle exists, it does not search for another one. The midnight tick starts the new day; scheduling/network delays can postpone posting by a few minutes, but submissions against yesterday are rejected immediately at the date boundary.
 
@@ -62,7 +63,7 @@ npx wrangler d1 create cathedral-guesser
 
 Update `wrangler.jsonc` with your new database ID, guild/source/game channel IDs, Discord application ID and public key. These IDs and the verification public key are not credentials. The current checked-in configuration targets The Cathedral’s private admin test channel, with scheduled posting disabled.
 
-1. In the Discord developer portal, enable **Message Content Intent**. Presence and Server Members intents are unnecessary.
+1. In the Discord developer portal, enable **Message Content Intent** and **Server Members Intent**. The member picker uses the REST member-list endpoint; no Gateway connection or Presence intent is needed.
 2. Install the bot with the `bot` and `applications.commands` scopes. Required permissions: **View Channels**, **Read Message History**, **Send Messages**, **Embed Links** (integer `84992`). Restrict channel access to the intended source and game channels if desired.
 3. Store the bot token as a Worker secret:
 
@@ -114,3 +115,5 @@ Tests exercise real SQLite constraints, signature validation, date boundaries, h
 The bot is configured for The Cathedral, sourcing `everything` and posting only in the private admin test channel. Automatic daily posting is disabled during this test. The former Shawn’s Server database is retained separately. See [verification notes](docs/VERIFICATION.md) for what was tested. Use `/guesser-admin practice` followed by `/guesser-admin finish-practice` to test the full loop without changing daily standings. Because it uses HTTP interactions without a Gateway connection, the bot may appear offline in Discord even while its buttons and commands work.
 
 The Cathedral policy: no computer-use UI automation in the server, no message/channel deletion, and no public game-channel posting until separately authorized. The Discord API helper blocks DELETE and bulk-delete requests. Command registration upserts commands without bulk deletion.
+
+Migration 0005 preserves existing rounds and results under their original one-guess rules. Newly created rounds use three guesses and context. Practice rounds remain excluded from daily stats.

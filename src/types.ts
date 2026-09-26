@@ -20,11 +20,11 @@ export interface Message {
 }
 export interface Round {
   id: string; day: string; practice: number; source_id: string; author_id: string;
-  content: string; media_json?: string; status: string; discord_id: string | null; revealed: number;
+  content: string; media_json?: string; context_json?: string; guess_limit?: number; status: string; discord_id: string | null; revealed: number;
 }
 export interface Guess {
   round_id: string; user_id: string; guessed_id: string; correct: number;
-  interaction_id: string; published_id: string | null;
+  interaction_id: string; published_id: string | null; attempts_used?: number;
 }
 export interface Interaction {
   id: string; application_id: string; token: string; type: number;
