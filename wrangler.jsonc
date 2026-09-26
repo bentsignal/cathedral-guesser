@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cathedral-guesser",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-25",
+  "account_id": "12f3bac77e8f2b140391cd4f79c766ad",
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "vars": {
+    "GUILD_ID": "1048351355498135582",
+    "SOURCE_CHANNEL_ID": "1553232384667816056",
+    "GAME_CHANNEL_ID": "1553234288668049489",
+    "TIME_ZONE": "America/New_York"
+  },
+  "d1_databases": [{"binding":"DB","database_name":"cathedral-guesser","database_id":"TO_BE_CREATED"}]
+}
