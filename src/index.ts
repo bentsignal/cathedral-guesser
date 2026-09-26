@@ -58,13 +58,14 @@ async function command(env: Env, i: Interaction) {
   }
   if (['status','sync','practice','finish-practice'].includes(sub) && !isAdmin(i)) return reply('You need Manage Server permission to use this command.');
   if (sub==='status') {
-    const count = await env.DB.prepare('SELECT COUNT(*) AS n FROM messages').first<number>('n');
-    return reply(`**Bot status**\nMessages archived: **${count}**\nHistory import: **${await state(env,'history_complete')?'complete':'in progress (100 messages every five minutes)'}**\nLast successful maintenance: ${await state(env,'last_success')||'not yet'}\nDaily reset: **midnight America/New_York**\nGame: <#${env.GAME_CHANNEL_ID}>`);
+    const first=await state(env,'source_first_ms');
+    const resume=Number(await state(env,'search_resume_at')||0);
+    return reply(`**Bot status**\nHistory: ${first?`available since ${new Date(Number(first)).toISOString().slice(0,10)}`:'checked on first puzzle'}\nSearch: ${resume>Date.now()?'waiting for Discord; retries automatically':'ready'}\nLast successful maintenance: ${await state(env,'last_success')||'not yet'}\nDaily reset: **midnight America/New_York**\nGame: <#${env.GAME_CHANNEL_ID}>`);
   }
   if (!isAdmin(i)) return reply('You need Manage Server permission to use this command.');
   if (sub==='sync') {
     await maintenance(env);
-    return reply('Maintenance requested: import a page of history, retry pending results, and post today’s puzzle when the full archive is ready. Use `/guesser-admin status` to check progress.');
+    return reply('Maintenance complete. Use `/guesser-admin status` to check progress.');
   }
   if (sub==='finish-practice') {
     const ended=await withLease(env,'maintenance',async()=> {
@@ -86,7 +87,7 @@ async function command(env: Env, i: Interaction) {
       if (r) await publishRound(env,r);
       return r;
     });
-    return reply(round?'Practice posted.':'No playable message found. Links may be unavailable, or history is still importing. Try another message.');
+    return reply(round?'Practice posted.':'No playable message found yet, or Discord needs a short pause. Try again shortly.');
   }
   return reply('Unknown command. Try `/guesser help`.');
 }

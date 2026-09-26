@@ -24,8 +24,8 @@ Every day at **midnight America/New_York** (including daylight saving changes), 
 | `/guesser help` | Rules and commands |
 | `/guesser stats` | Your daily correct/incorrect totals and accuracy |
 | `/guesser leaderboard` | Top ten by correct answers, with medals for the top three |
-| `/guesser-admin status` | Archive progress and last successful maintenance |
-| `/guesser-admin sync` | Admin: run one maintenance/import batch |
+| `/guesser-admin status` | History search and last successful maintenance |
+| `/guesser-admin sync` | Admin: retry today’s puzzle and pending results |
 | `/guesser-admin practice` | Admin: post a practice puzzle; optional `message` accepts a source message ID or link |
 | `/guesser-admin finish-practice` | Admin: reveal and recap the latest open practice round |
 
@@ -35,13 +35,15 @@ Administrative commands live under `/guesser-admin` and are hidden by default fr
 
 Discord delivers signed HTTP interactions to `/interactions`. The Worker verifies Ed25519 signatures and rejects stale or mismatched requests, immediately acknowledges accepted interactions, then completes private responses asynchronously.
 
-D1 holds the archive, rounds, guesses, import cursors, and short-lived maintenance locks. A unique `(round_id, user_id)` key plus a conditional insert enforces the one-guess rule atomically. Buttons never encode the author. Saved guesses are authoritative even if Discord temporarily fails to deliver the confirmation.
+D1 holds selected puzzles, guesses, a cached history start date, search cooldowns, and short-lived maintenance locks. It does not keep a copy of the source channel. A unique `(round_id, user_id)` key plus a conditional insert enforces the one-guess rule atomically. Buttons never encode the author. Saved guesses are authoritative even if Discord temporarily fails to deliver the confirmation.
 
-A five-minute Cron Trigger imports up to 100 messages, retries unpublished results, closes old rounds, and posts the current daily puzzle if needed. The midnight tick starts the new day; scheduling/network delays can postpone posting by a few minutes, but submissions against yesterday are rejected immediately at the date boundary.
+A five-minute Cron Trigger retries unpublished results, closes old rounds, and posts the current daily puzzle if needed. Once the daily puzzle exists, it does not search for another one. The midnight tick starts the new day; scheduling/network delays can postpone posting by a few minutes, but submissions against yesterday are rejected immediately at the date boundary.
 
-Initial import walks **the entire configured channel history** before choosing the first daily puzzle. This prevents a biased first puzzle drawn only from recent messages. Normal import speed is about **1,200 messages/hour**. Afterward it catches up on new messages using an ID cursor. The bot does not enumerate unrelated channels or thread histories.
+The bot uses Discord's search API, scoped to the source channel. It discovers the oldest human message with one search, then chooses a random month from that date through today. It requests a message count and jumps to a random result; unusually busy months are split into smaller date ranges to stay within Discord's offset limit. Older quiet periods get a chance alongside busy recent ones. Empty periods are retried within a bounded request budget; if no playable message is found, the next scheduled tick tries again.
 
-Eligible messages are ordinary messages and replies by humans, containing text or image/video attachments, with a safely rendered text length of at most 3,500 characters. Bots, webhooks, system events, and oversized messages are excluded. Authors must still belong to the server when the puzzle is chosen. Selected source messages are fetched again to respect edits and deletions. Departed authors and deleted messages are marked ineligible. Unused eligible messages are sampled uniformly; after exhausting the pool, oldest-used messages are recycled.
+There is no bulk import or channel replica. Search responses stay in memory; only the chosen puzzle is saved. Discord rate-limit and indexing responses persist a cooldown so later invocations also wait. New messages are available through Discord search without a separate import. Source and game channels remain independently configured.
+
+Eligible messages are ordinary messages and replies by humans, containing text or image/video attachments, with safely rendered text of at most 3,500 characters. Authors must still be members when selected. The original message is fetched again to check edits, deletion, and current attachment URLs. Daily messages used in the past year are skipped; practice does not consume that history. Each attempt validates at most three candidates. The bot does not enumerate unrelated channels or threads.
 
 Before selection, links are checked with bounded timeouts and safe redirects; inaccessible links are skipped for 24 hours. YouTube videos and X posts are verified through their official oEmbed endpoints. Other pages use HTTP availability and Open Graph metadata where available; this cannot detect every soft-error page. Messages support up to three links and four image/video attachments. Fresh attachment URLs are fetched from Discord. Native Discord previews and video players are preferred, with verified metadata as a fallback on a later maintenance tick when no native preview appears. Provider restrictions and Discord client preferences can affect previews.
 
@@ -77,7 +79,7 @@ Update `wrangler.jsonc` with your new database ID, guild/source/game channel IDs
    node --env-file=.dev.vars scripts/register-commands.mjs
    ```
 
-6. Run `/guesser-admin sync` in Discord or wait for the next scheduled tick. Check `/guesser-admin status`; the puzzle appears after initial import is complete.
+6. Run `/guesser-admin sync` or wait for the next scheduled tick. No history import is required. `/guesser-admin status` shows search readiness.
 
 Never commit `.dev.vars`, `.env` files, credentials, downloaded message archives, or database exports. `.gitignore` excludes local secret files and Wrangler state. GitHub Actions only runs checks and a dry-run build; deployment credentials are not stored in GitHub.
 
@@ -85,7 +87,7 @@ Never commit `.dev.vars`, `.env` files, credentials, downloaded message archives
 
 The testing deployment is intentionally isolated. Provision a **separate Worker and D1 database** for The Cathedral and set its guild and channel IDs. Install the same application there, register its guild commands, and switch the application’s interactions endpoint to that Worker when ready. A Discord application has one interactions endpoint: use a second Discord application to keep independent testing and production bots active simultaneously. Do not just replace the channel IDs on a database containing another server’s archive.
 
-The production setup should restrict the bot to the everything channel and a dedicated game channel, then allow the initial import to finish. Existing testing scores should not carry over.
+The production setup should restrict the bot to the everything channel and a dedicated game channel, then verify history search with a practice round. Existing testing scores should not carry over.
 
 ## Operations
 
@@ -93,8 +95,8 @@ The production setup should restrict the bot to the everything channel and a ded
 - `/guesser-admin status` reports the last successful scheduled/manual maintenance run.
 - Use `npx wrangler tail` (requires tail permission) or the Cloudflare dashboard for runtime diagnostics.
 - Cron is set to `*/5 * * * *`. Clear that array and deploy to pause automatic posting/import.
-- Failed history requests do not advance the cursor. Failed result posts remain queued.
-- Initial import rate is deliberately bounded to fit a small server within free-tier request/write budgets; actual limits depend on Cloudflare’s current plan and other account usage.
+- Rate-limited or indexing searches pause and retry automatically. Failed result posts remain queued.
+- Search requests are bounded per run. No paid plan is enabled; free-tier usage is shared with other applications on the account.
 - No paid plan or always-running Railway service is required by this architecture.
 
 ## Development
@@ -105,7 +107,7 @@ npm run check
 npx wrangler deploy --dry-run
 ```
 
-Tests exercise real SQLite constraints, signature validation, date boundaries, archive cursors, rate-limit recovery, answer reveal, and durable result delivery. External Discord responses are mocked; live Discord testing is also needed after installation.
+Tests exercise real SQLite constraints, signature validation, date boundaries, history sampling, rate-limit recovery, answer reveal, and durable result delivery. External Discord responses are mocked; live Discord testing is also needed after installation.
 
 ## Current testing deployment
 

@@ -28,3 +28,12 @@ The midnight transition is covered by date-boundary/DST tests and the same revea
 - Checked the real YouTube oEmbed endpoint: a valid video produced metadata; an invalid video was rejected. YouTube playback in a live puzzle still needs a user-posted source sample.
 - Typecheck and all 36 automated tests passed, covering link failures, redirect restrictions, preview metadata, media eligibility, concise output, and existing game behavior.
 - Link checks establish availability at selection time; they cannot guarantee later uptime or detect every HTTP-200 error page. Native previews remain subject to provider/client restrictions.
+
+## September 26: on-demand history sampling
+
+- Replaced bulk history import with Discord search scoped to the configured source channel. Random month selection spans the oldest human message through today; dense periods are narrowed before choosing a result offset.
+- Removed the copied message archive with migration 0004. Existing puzzles and scores are preserved. No paid services were enabled.
+- Persisted search cooldowns for rate-limit and indexing responses; bounded search work per invocation and retries through existing Cron maintenance.
+- Verified a live `/guesser-admin practice` with no source argument after dropping the archive: a random X-link puzzle posted successfully with its native preview.
+- All 40 tests passed, including old/recent period selection, dense-period subdivision, request caps, cooldown persistence, former-member rejection, and daily repeat avoidance.
+- Production-scale history has not yet been tested because the bot still targets the private test server.
