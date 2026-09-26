@@ -45,7 +45,7 @@ function isAdmin(i: Interaction) {
 async function command(env: Env, i: Interaction) {
   const sub = i.data?.options?.[0]?.name || 'play';
   if (sub==='play') return showSelector(env,i,gameDay(new Date(),env.TIME_ZONE));
-  if (sub==='help') return reply('**Cathedral Guesser**\nEvery day at midnight Eastern, a historical message becomes a new puzzle. Click **Guess**, then pick a current server member. Selection is final: one guess per round.\n\nRight/wrong results are public; your selection stays private. The author and original message are revealed when the day ends.\n\n`/guesser stats` · your record\n`/guesser leaderboard` · server standings\n`/guesser status` · import and bot health\nAdmins can use `/guesser sync`, `/guesser practice`, and `/guesser finish-practice` for testing. Practice does not affect daily standings.');
+  if (sub==='help') return reply('**Cathedral Guesser**\nEvery day at midnight Eastern, a historical message becomes a new puzzle. Click **Guess**, then pick a current server member. Selection is final: one guess per round.\n\nRight/wrong results are public; your selection stays private. The author and original message are revealed when the day ends.\n\n`/guesser stats` · your record\n`/guesser leaderboard` · server standings');
   if (sub==='stats') {
     const stats = await env.DB.prepare(`SELECT COUNT(*) AS played, COALESCE(SUM(g.correct),0) AS wins FROM guesses g
       JOIN rounds r ON r.id=g.round_id WHERE g.user_id=? AND r.practice=0`).bind(i.member!.user.id).first<{played:number;wins:number}>();
@@ -56,6 +56,7 @@ async function command(env: Env, i: Interaction) {
       JOIN rounds r ON r.id=g.round_id WHERE r.practice=0 GROUP BY g.user_id ORDER BY wins DESC,played ASC,g.user_id LIMIT 10`).all<{user_id:string;played:number;wins:number}>();
     return reply('**Cathedral Guesser · Daily standings**\n'+(rows.results.map((r,n)=>`${['🥇','🥈','🥉'][n] || `${n+1}.`} <@${r.user_id}> — **${r.wins}** correct · ${r.played-r.wins} incorrect`).join('\n')||'No daily guesses yet. Be the first!'));
   }
+  if (['status','sync','practice','finish-practice'].includes(sub) && !isAdmin(i)) return reply('You need Manage Server permission to use this command.');
   if (sub==='status') {
     const count = await env.DB.prepare('SELECT COUNT(*) AS n FROM messages').first<number>('n');
     return reply(`**Bot status**\nMessages archived: **${count}**\nHistory import: **${await state(env,'history_complete')?'complete':'in progress (100 messages every five minutes)'}**\nLast successful maintenance: ${await state(env,'last_success')||'not yet'}\nDaily reset: **midnight America/New_York**\nGame: <#${env.GAME_CHANNEL_ID}>`);
@@ -63,7 +64,7 @@ async function command(env: Env, i: Interaction) {
   if (!isAdmin(i)) return reply('You need Manage Server permission to use this command.');
   if (sub==='sync') {
     await maintenance(env);
-    return reply('Maintenance requested: import a page of history, retry pending results, and post today’s puzzle when the full archive is ready. Use `/guesser status` to check progress.');
+    return reply('Maintenance requested: import a page of history, retry pending results, and post today’s puzzle when the full archive is ready. Use `/guesser-admin status` to check progress.');
   }
   if (sub==='finish-practice') {
     const ended=await withLease(env,'maintenance',async()=> {

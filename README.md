@@ -14,7 +14,7 @@ Every day at **midnight America/New_York** (including daylight saving changes), 
 - The nightly recap lists **everyone who played**, with all correct players first and all incorrect players afterward. Long recaps are paginated.
 - At the next reset, yesterday’s original post reveals the author, a link to the source message.
 - Quotes redact user/role and channel mentions; they never ping anyone. Links remain clickable.
-- `/guesser practice` creates an independent practice round. Practice never affects daily standings.
+- `/guesser-admin practice` creates an independent practice round. Practice never affects daily standings.
 
 ### Commands
 
@@ -24,12 +24,12 @@ Every day at **midnight America/New_York** (including daylight saving changes), 
 | `/guesser help` | Rules and commands |
 | `/guesser stats` | Your daily correct/incorrect totals and accuracy |
 | `/guesser leaderboard` | Top ten by correct answers, with medals for the top three |
-| `/guesser status` | Archive progress and last successful maintenance |
-| `/guesser sync` | Admin: run one maintenance/import batch |
-| `/guesser practice` | Admin: post a practice puzzle; optional `message` accepts a source message ID or link |
-| `/guesser finish-practice` | Admin: reveal and recap the latest open practice round |
+| `/guesser-admin status` | Archive progress and last successful maintenance |
+| `/guesser-admin sync` | Admin: run one maintenance/import batch |
+| `/guesser-admin practice` | Admin: post a practice puzzle; optional `message` accepts a source message ID or link |
+| `/guesser-admin finish-practice` | Admin: reveal and recap the latest open practice round |
 
-Administrative commands require **Manage Server** or Administrator permission. The bot itself does **not** need Administrator.
+Administrative commands live under `/guesser-admin` and are hidden by default from members without **Manage Server** or Administrator permission. The Worker also enforces these permissions when commands run. The bot itself does **not** need Administrator.
 
 ## How it works
 
@@ -77,7 +77,7 @@ Update `wrangler.jsonc` with your new database ID, guild/source/game channel IDs
    node --env-file=.dev.vars scripts/register-commands.mjs
    ```
 
-6. Run `/guesser sync` in Discord or wait for the next scheduled tick. Check `/guesser status`; the puzzle appears after initial import is complete.
+6. Run `/guesser-admin sync` in Discord or wait for the next scheduled tick. Check `/guesser-admin status`; the puzzle appears after initial import is complete.
 
 Never commit `.dev.vars`, `.env` files, credentials, downloaded message archives, or database exports. `.gitignore` excludes local secret files and Wrangler state. GitHub Actions only runs checks and a dry-run build; deployment credentials are not stored in GitHub.
 
@@ -90,7 +90,7 @@ The production setup should restrict the bot to the everything channel and a ded
 ## Operations
 
 - `/health` is a minimal HTTP liveness endpoint; it does not expose archive contents, answers, tokens, or database access.
-- `/guesser status` reports the last successful scheduled/manual maintenance run.
+- `/guesser-admin status` reports the last successful scheduled/manual maintenance run.
 - Use `npx wrangler tail` (requires tail permission) or the Cloudflare dashboard for runtime diagnostics.
 - Cron is set to `*/5 * * * *`. Clear that array and deploy to pause automatic posting/import.
 - Failed history requests do not advance the cursor. Failed result posts remain queued.
@@ -109,4 +109,4 @@ Tests exercise real SQLite constraints, signature validation, date boundaries, a
 
 ## Current testing deployment
 
-The bot is installed in the private testing server, with a live daily puzzle in the dedicated game channel. See [verification notes](docs/VERIFICATION.md) for what was tested. Use `/guesser practice` followed by `/guesser finish-practice` to test the full loop without changing daily standings. Because it uses HTTP interactions without a Gateway connection, the bot may appear offline in Discord even while its buttons and commands work.
+The bot is installed in the private testing server, with a live daily puzzle in the dedicated game channel. See [verification notes](docs/VERIFICATION.md) for what was tested. Use `/guesser-admin practice` followed by `/guesser-admin finish-practice` to test the full loop without changing daily standings. Because it uses HTTP interactions without a Gateway connection, the bot may appear offline in Discord even while its buttons and commands work.
