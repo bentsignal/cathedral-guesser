@@ -19,3 +19,12 @@ Verified September 25, 2026 in the private testing server.
 - Automated tests and GitHub Actions pass.
 
 The midnight transition is covered by date-boundary/DST tests and the same reveal path exercised in practice. A real midnight transition was not waited for during this session.
+
+## September 26: copy cleanup and media
+
+- Deployed media schema migration and optional `/guesser practice message:` argument.
+- Updated nine existing puzzle/result/recap posts to the new concise layout, preserving scores.
+- Tested targeted practice rounds against the user's uploaded PNG, MP4, and X post in the private game channel. Discord displayed the image, played the 48-second video inline, and showed the X author/content preview. All three rounds were left available for user testing.
+- Checked the real YouTube oEmbed endpoint: a valid video produced metadata; an invalid video was rejected. YouTube playback in a live puzzle still needs a user-posted source sample.
+- Typecheck and all 36 automated tests passed, covering link failures, redirect restrictions, preview metadata, media eligibility, concise output, and existing game behavior.
+- Link checks establish availability at selection time; they cannot guarantee later uptime or detect every HTTP-200 error page. Native previews remain subject to provider/client restrictions.

@@ -57,6 +57,7 @@ describe('link availability',()=>{
   });
   it('deduplicates links and checks fresh Discord attachment URLs',async()=>{
     expect(links('https://public.com/a https://public.com/a')).toEqual(['https://public.com/a']);
+    expect(links('[link](https://public.com/a) `https://public.com/b`')).toEqual(['https://public.com/a','https://public.com/b']);
     const mock=vi.fn().mockResolvedValue(new Response(null,{status:200}));vi.stubGlobal('fetch',mock);
     const attachment={id:'2',url:'https://cdn.discordapp.com/attachments/1/2/image.png?ex=fresh',filename:'image.png',content_type:'image/png'};
     expect((await validateMedia({...message,attachments:[attachment]}))?.attachments).toEqual([attachment]);

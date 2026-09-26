@@ -1,19 +1,19 @@
 # Cathedral Guesser
 
-One message. One guess. Who said it?
+One message. One guess. Who sent it?
 
 A Discord-native daily guessing game on **Cloudflare Workers + D1**. No always-on server or Gateway connection is required.
 
 ## Playing
 
-Every day at **midnight America/New_York** (including daylight saving changes), the bot posts a random historical text message. Click **Make my guess** to open your private member selector. Selecting a name submits your one and only answer.
+Every day at **midnight America/New_York** (including daylight saving changes), the bot posts a random historical message, image, video, or link. Click **Guess** to open your private member selector. Selecting a name submits your one and only answer.
 
 - Each current human server member can guess once per puzzle.
 - The private selector disappears after answering. Everyone else can still play.
-- The bot posts a public 🟩/🟥 result without revealing the guessed name or author.
+- The bot posts a public right/wrong result without revealing the guessed name or author.
 - The nightly recap lists **everyone who played**, with all correct players first and all incorrect players afterward. Long recaps are paginated.
-- At the next reset, yesterday’s original post reveals the author, a link to the source message, and the number of correct players.
-- Quotes redact user/role mentions, channel mentions, and links; they never ping anyone.
+- At the next reset, yesterday’s original post reveals the author, a link to the source message.
+- Quotes redact user/role and channel mentions; they never ping anyone. Links remain clickable.
 - `/guesser practice` creates an independent practice round. Practice never affects daily standings.
 
 ### Commands
@@ -26,7 +26,7 @@ Every day at **midnight America/New_York** (including daylight saving changes), 
 | `/guesser leaderboard` | Top ten by correct answers, with medals for the top three |
 | `/guesser status` | Archive progress and last successful maintenance |
 | `/guesser sync` | Admin: run one maintenance/import batch |
-| `/guesser practice` | Admin: post a practice puzzle |
+| `/guesser practice` | Admin: post a practice puzzle; optional `message` accepts a source message ID or link |
 | `/guesser finish-practice` | Admin: reveal and recap the latest open practice round |
 
 Administrative commands require **Manage Server** or Administrator permission. The bot itself does **not** need Administrator.
@@ -41,7 +41,9 @@ A five-minute Cron Trigger imports up to 100 messages, retries unpublished resul
 
 Initial import walks **the entire configured channel history** before choosing the first daily puzzle. This prevents a biased first puzzle drawn only from recent messages. Normal import speed is about **1,200 messages/hour**. Afterward it catches up on new messages using an ID cursor. The bot does not enumerate unrelated channels or thread histories.
 
-Eligible messages are ordinary text messages and replies by humans, with nonempty text and a safely rendered length of at most 3,500 characters. Attachment-only messages, bots, webhooks, system events, and oversized messages are excluded. Authors must still belong to the server when the puzzle is chosen. Selected source messages are fetched again to respect edits and deletions. Departed authors and deleted messages are marked ineligible. Unused eligible messages are sampled uniformly; after exhausting the pool, oldest-used messages are recycled.
+Eligible messages are ordinary messages and replies by humans, containing text or image/video attachments, with a safely rendered text length of at most 3,500 characters. Bots, webhooks, system events, and oversized messages are excluded. Authors must still belong to the server when the puzzle is chosen. Selected source messages are fetched again to respect edits and deletions. Departed authors and deleted messages are marked ineligible. Unused eligible messages are sampled uniformly; after exhausting the pool, oldest-used messages are recycled.
+
+Before selection, links are checked with bounded timeouts and safe redirects; inaccessible links are skipped for 24 hours. YouTube videos and X posts are verified through their official oEmbed endpoints. Other pages use HTTP availability and Open Graph metadata where available; this cannot detect every soft-error page. Messages support up to three links and four image/video attachments. Fresh attachment URLs are fetched from Discord. Native Discord previews and video players are preferred, with verified metadata as a fallback on a later maintenance tick when no native preview appears. Provider restrictions and Discord client preferences can affect previews.
 
 Pending public posts use deterministic Discord nonces and recent-message recovery markers to reduce duplicates after delivery failures. Recovery checks the most recent 100 messages in the game channel; this is intended for a dedicated low-volume game channel, not a busy general chat. Cron retries persist across Worker restarts.
 

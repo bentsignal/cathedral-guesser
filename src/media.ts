@@ -10,7 +10,11 @@ export function publicUrl(value: string): boolean {
   } catch { return false; }
 }
 export function links(content: string): string[] {
-  return [...new Set((content.match(/https?:\/\/[^\s<>]+/g) || []).map(url=>url.replace(/[.,!?;]+$/,'')))];
+  return [...new Set((content.match(/https?:\/\/[^\s<>`]+/g) || []).map(url=>{
+    url=url.replace(/[.,!?;]+$/,'');
+    while(url.endsWith(')') && (url.match(/\)/g)||[]).length>(url.match(/\(/g)||[]).length)url=url.slice(0,-1);
+    return url;
+  }))];
 }
 export function supportedAttachments(message: Message): Attachment[] {
   return (message.attachments || []).filter(a=>/^(image|video)\//.test(a.content_type || '') && publicUrl(a.url));

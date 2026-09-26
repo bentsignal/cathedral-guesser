@@ -45,7 +45,7 @@ function isAdmin(i: Interaction) {
 async function command(env: Env, i: Interaction) {
   const sub = i.data?.options?.[0]?.name || 'play';
   if (sub==='play') return showSelector(env,i,gameDay(new Date(),env.TIME_ZONE));
-  if (sub==='help') return reply('**Cathedral Guesser**\nEvery day at midnight Eastern, a historical message becomes a new puzzle. Click **Make my guess**, then pick a current server member. Selection is final: one guess per round.\n\n🟩 / 🟥 results are public; your selection stays private. The author and original message are revealed when the day ends.\n\n`/guesser stats` · your record\n`/guesser leaderboard` · server standings\n`/guesser status` · import and bot health\nAdmins can use `/guesser sync`, `/guesser practice`, and `/guesser finish-practice` for testing. Practice does not affect daily standings.');
+  if (sub==='help') return reply('**Cathedral Guesser**\nEvery day at midnight Eastern, a historical message becomes a new puzzle. Click **Guess**, then pick a current server member. Selection is final: one guess per round.\n\nRight/wrong results are public; your selection stays private. The author and original message are revealed when the day ends.\n\n`/guesser stats` · your record\n`/guesser leaderboard` · server standings\n`/guesser status` · import and bot health\nAdmins can use `/guesser sync`, `/guesser practice`, and `/guesser finish-practice` for testing. Practice does not affect daily standings.');
   if (sub==='stats') {
     const stats = await env.DB.prepare(`SELECT COUNT(*) AS played, COALESCE(SUM(g.correct),0) AS wins FROM guesses g
       JOIN rounds r ON r.id=g.round_id WHERE g.user_id=? AND r.practice=0`).bind(i.member!.user.id).first<{played:number;wins:number}>();

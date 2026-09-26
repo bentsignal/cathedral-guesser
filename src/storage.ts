@@ -123,7 +123,10 @@ export async function revealOldRounds(env: Env) {
     if (round.discord_id) {
       const counts = await env.DB.prepare('SELECT COUNT(*) AS total, COALESCE(SUM(correct),0) AS correct FROM guesses WHERE round_id=?').bind(round.id).first<{total:number;correct:number}>();
       try {
-        await discord(env,`/channels/${env.GAME_CHANNEL_ID}/messages/${round.discord_id}`,'PATCH',roundPayload(round,true,counts!.total,counts!.correct,env.GUILD_ID,env.SOURCE_CHANNEL_ID));
+        const payload=roundPayload(round,true,counts!.total,counts!.correct,env.GUILD_ID,env.SOURCE_CHANNEL_ID);
+        // Keep Discord's existing media/previews when revealing the author.
+        const {embeds: _embeds,...reveal}=payload;
+        await discord(env,`/channels/${env.GAME_CHANNEL_ID}/messages/${round.discord_id}`,'PATCH',reveal);
       } catch (error) { if (!(error instanceof DiscordError && error.status===404)) throw error; }
     }
     {
