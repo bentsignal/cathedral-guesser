@@ -17,7 +17,7 @@ function statement(sql: string, args: any[] = []): any {
 }
 const msg=(id:string,content='a historical quote'):Message=>({id,content,type:0,timestamp:'2016-01-01T00:00:00Z',author:{id:'author',username:'author'}});
 beforeEach(()=>{
-  db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../migrations/0001_initial.sql',import.meta.url),'utf8'));db.exec(readFileSync(new URL('../migrations/0002_recaps.sql',import.meta.url),'utf8'));
+  db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../migrations/0001_initial.sql',import.meta.url),'utf8'));db.exec(readFileSync(new URL('../migrations/0002_recaps.sql',import.meta.url),'utf8'));db.exec(readFileSync(new URL('../migrations/0003_media.sql',import.meta.url),'utf8'));
   env={DB:{prepare:statement,batch:async(stmts:any[])=>{db.exec('BEGIN');try{const r=[];for(const s of stmts)r.push(await s.run());db.exec('COMMIT');return r;}catch(e){db.exec('ROLLBACK');throw e;}}} as any,
     GUILD_ID:'guild',SOURCE_CHANNEL_ID:'source',GAME_CHANNEL_ID:'game',DISCORD_APPLICATION_ID:'bot',DISCORD_TOKEN:'test-token',TIME_ZONE:'America/New_York',DISCORD_PUBLIC_KEY:''};
 });
@@ -70,7 +70,7 @@ describe('resumable history and daily lifecycle',()=>{
     expect(db.prepare("SELECT status,revealed FROM rounds WHERE id='old'").get()).toMatchObject({status:'closed',revealed:1});
     const payload=JSON.parse(fetcher.mock.calls[0][1].body);
     expect(payload.components).toEqual([]);
-    expect(payload.embeds[0].description).toContain('<@author>');
+    expect(payload.content).toContain('<@author>');
     expect(db.prepare('SELECT COUNT(*) AS n FROM recaps').get()).toMatchObject({n:1});
     await revealOldRounds(env);
     expect(db.prepare('SELECT COUNT(*) AS n FROM recaps').get()).toMatchObject({n:1});

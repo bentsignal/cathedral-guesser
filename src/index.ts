@@ -13,9 +13,9 @@ async function showSelector(env: Env, i: Interaction, roundId: string) {
     return reply('This round is closed or not ready yet. Look for today’s puzzle in the game channel.');
   }
   const existing = await env.DB.prepare('SELECT * FROM guesses WHERE round_id=? AND user_id=?').bind(roundId,i.member!.user.id).first<Guess>();
-  if (existing) return reply(`You already used your one guess. ${existing.correct?'🟩 You got it right!':'🟥 You missed this one.'} Come back tomorrow.`);
-  return reply('**Who wrote today’s message?**\nPick one current server member. **Selecting a name submits your only guess immediately.**',[
-    {type:1,components:[{type:5,custom_id:`guess:${round.id}`,placeholder:'Choose the author — final answer',min_values:1,max_values:1}]},
+  if (existing) return reply(`You already used your one guess. ${existing.correct?'Correct.':'Incorrect.'}`);
+  return reply('**Who sent it?**\nOne guess. Selecting a name submits it.',[
+    {type:1,components:[{type:5,custom_id:`guess:${round.id}`,placeholder:'Choose someone',min_values:1,max_values:1}]},
   ]);
 }
 export const INSERT_GUESS = `INSERT INTO guesses(round_id,user_id,guessed_id,correct,interaction_id)
@@ -36,7 +36,7 @@ async function submitGuess(env: Env, i: Interaction, roundId: string) {
     const previous = await env.DB.prepare('SELECT * FROM guesses WHERE round_id=? AND user_id=?').bind(roundId,userId).first<Guess>();
     return reply(previous ? `Your guess was already locked in. ${previous.correct?'🟩 Correct!':'🟥 Incorrect.'} You get one guess per round.` : 'This round has ended. Your guess was not recorded.');
   }
-  return reply(`${saved.correct?'🟩 **You got it right!**':'🟥 **Not this time.**'}\nYour guess is locked in. The author will be revealed when this round ends at midnight Eastern.`);
+  return reply(`${saved.correct?'Correct.':'Incorrect.'}`);
 }
 function isAdmin(i: Interaction) {
   const permissions = BigInt(i.member?.permissions || '0');
@@ -74,15 +74,18 @@ async function command(env: Env, i: Interaction) {
       await publishRecaps(env);
       return true;
     });
-    return reply(ended?'Practice round closed. Its author is revealed and the player recap is queued. Daily scores are unchanged.':'No open practice round found, or maintenance is running.');
+    return reply(ended?'Practice closed.':'No open practice round found, or maintenance is running.');
   }
   if (sub==='practice') {
     const round = await withLease(env,'maintenance',async()=> {
-      const r = await createRound(env,`practice-${i.id}`);
+      const input=i.data?.options?.[0]?.options?.find(o=>o.name==='message')?.value;
+      const sourceId=input?.match(/(?:^|\/)(\d{17,20})$/)?.[1];
+      if(input && !sourceId)throw new Error('Invalid message ID');
+      const r = await createRound(env,`practice-${i.id}`,sourceId);
       if (r) await publishRound(env,r);
       return r;
     });
-    return reply(round?'Practice puzzle posted! It has its own one-guess limit and does not affect daily standings.':'History is still importing, there are no eligible messages, or maintenance is running. Try again shortly.');
+    return reply(round?'Practice posted.':'No playable message found. Links may be unavailable, or history is still importing. Try another message.');
   }
   return reply('Unknown command. Try `/guesser help`.');
 }

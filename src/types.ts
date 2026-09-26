@@ -10,13 +10,17 @@ export interface Env {
 }
 export interface User { id: string; username: string; global_name?: string; bot?: boolean }
 export interface Member { user: User; nick?: string; permissions?: string }
+export interface Attachment { id: string; url: string; filename: string; content_type?: string; size?: number }
+export interface Preview { title?: string; description?: string; url?: string; type?: string; image?: {url:string}; thumbnail?: {url:string}; author?: {name:string;url?:string}; footer?: {text:string} }
+export interface Media { attachments?: Attachment[]; previews?: Preview[] }
 export interface Message {
   id: string; content: string; author: User; timestamp: string;
-  type: number; webhook_id?: string; embeds?: { footer?: { text: string } }[];
+  type: number; webhook_id?: string; embeds?: Preview[]; attachments?: Attachment[];
+  components?: {components?: {custom_id?:string}[]}[];
 }
 export interface Round {
   id: string; day: string; practice: number; source_id: string; author_id: string;
-  content: string; status: string; discord_id: string | null; revealed: number;
+  content: string; media_json?: string; status: string; discord_id: string | null; revealed: number;
 }
 export interface Guess {
   round_id: string; user_id: string; guessed_id: string; correct: number;
@@ -25,5 +29,5 @@ export interface Guess {
 export interface Interaction {
   id: string; application_id: string; token: string; type: number;
   guild_id?: string; channel_id?: string; member?: Member;
-  data?: { name?: string; custom_id?: string; values?: string[]; options?: {name: string; value?: string}[] };
+  data?: { name?: string; custom_id?: string; values?: string[]; options?: {name: string; value?: string; options?: {name:string;value?:string}[]}[] };
 }

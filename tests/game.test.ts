@@ -20,8 +20,8 @@ describe('daily game rules',()=>{
     expect(eligibleMessage({...message,type:19})).toBe(true);
     for(const m of [{...message,content:'  '},{...message,type:7},{...message,webhook_id:'x'},{...message,author:{...message.author,bot:true}},{...message,content:'x'.repeat(3501)}]) expect(eligibleMessage(m)).toBe(false);
   });
-  it('hides identifying mentions and clickable links',()=>{
-    expect(displayQuote('<@123> <@!456> <@&789> <#999> https://example.com **bold**')).toBe('@someone @someone @role #channel \\[link\\] \\*\\*bold\\*\\*');
+  it('hides identifying mentions while preserving clickable links',()=>{
+    expect(displayQuote('<@123> <@!456> <@&789> <#999> https://example.com **bold**')).toBe('@someone @someone @role #channel https://example.com \\*\\*bold\\*\\*');
   });
   it('keeps the author out of the public puzzle and reveals only on close',()=>{
     const open=JSON.stringify(roundPayload(round));
@@ -30,8 +30,9 @@ describe('daily game rules',()=>{
     expect(open).toContain('play:2026-09-25');
     const closed=roundPayload(round,true,5,2,'guild','channel');
     expect(closed.components).toEqual([]);
-    expect(closed.embeds[0].description).toContain('<@456>');
-    expect(closed.embeds[0].description).toContain('2 of 5');
+    expect(closed.content).toContain('<@456>');
+    expect(open).toContain('Who sent it?');
+    expect(open).not.toContain('takebacks');
   });
 });
 
@@ -41,7 +42,9 @@ describe('nightly recaps',()=>{
     const recap=recapPages('2026-09-25',[{user_id:'wrong1',correct:0},{user_id:'right1',correct:1},{user_id:'wrong2',correct:0},{user_id:'right2',correct:1}]).join('\n');
     expect(recap.indexOf('<@right1>')).toBeLessThan(recap.indexOf('<@wrong1>'));
     expect(recap.indexOf('<@right2>')).toBeLessThan(recap.indexOf('<@wrong1>'));
-    expect(recap).toContain('4 played · 2 correct · 2 incorrect');
+    expect(recap).toContain('Correct (2)');
+    expect(recap).toContain('Incorrect (2)');
+    expect(recap).not.toContain('Final results');
     for(const id of ['wrong1','right1','wrong2','right2']) expect(recap.split(`<@${id}>`)).toHaveLength(2);
   });
   it('paginates a large server without dropping any players or exceeding embed limits',()=>{
@@ -52,6 +55,6 @@ describe('nightly recaps',()=>{
     for(const player of players) expect(pages.join('\n').split(`<@${player.user_id}>`)).toHaveLength(2);
   });
   it('handles days with no players',()=>{
-    expect(recapPages('2026-09-25',[])[0]).toContain('0 played · 0 correct · 0 incorrect');
+    expect(recapPages('2026-09-25',[])[0]).toBe('**Correct (0)**\n\n**Incorrect (0)**');
   });
 });

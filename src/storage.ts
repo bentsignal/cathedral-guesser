@@ -1,6 +1,8 @@
 import type { Env, Message, Round, Member, Guess } from './types';
 import { discord, DiscordError, noMentions, nonce } from './discord';
-import { eligibleMessage, gameDay, roundPayload, recapPages } from './game';
+import { eligibleMessage, gameDay, roundPayload, recapPages, resultPayload, recapPayload } from './game';
+
+import { parseMedia, validateMedia } from './media';
 
 export async function state(env: Env, key: string): Promise<string | null> {
   return env.DB.prepare('SELECT value FROM state WHERE key = ?').bind(key).first<string>('value');
@@ -19,11 +21,11 @@ export async function withLease<T>(env: Env, key: string, work: () => Promise<T>
 }
 
 async function archivePage(env: Env, messages: Message[]) {
-  const rows = messages.filter(eligibleMessage).map(m => ({id:m.id,author:m.author.id,content:m.content,timestamp:m.timestamp}));
+  const rows = messages.filter(eligibleMessage).map(m => ({id:m.id,author:m.author.id,content:m.content,timestamp:m.timestamp,media:{attachments:m.attachments||[],previews:[]}}));
   if (!rows.length) return;
-  await env.DB.prepare(`INSERT INTO messages(id,author_id,content,timestamp)
-    SELECT json_extract(value,'$.id'),json_extract(value,'$.author'),json_extract(value,'$.content'),json_extract(value,'$.timestamp') FROM json_each(?)
-    WHERE 1 ON CONFLICT(id) DO UPDATE SET content=excluded.content, author_id=excluded.author_id`)
+  await env.DB.prepare(`INSERT INTO messages(id,author_id,content,timestamp,media_json)
+    SELECT json_extract(value,'$.id'),json_extract(value,'$.author'),json_extract(value,'$.content'),json_extract(value,'$.timestamp'),json_extract(value,'$.media') FROM json_each(?)
+    WHERE 1 ON CONFLICT(id) DO UPDATE SET content=excluded.content, author_id=excluded.author_id,media_json=excluded.media_json`)
     .bind(JSON.stringify(rows)).run();
 }
 
@@ -55,16 +57,16 @@ export async function currentMember(env: Env, userId: string): Promise<Member | 
   }
 }
 
-export async function createRound(env: Env, id?: string): Promise<Round | null> {
+export async function createRound(env: Env, id?: string, sourceId?: string): Promise<Round | null> {
   const day = gameDay(new Date(),env.TIME_ZONE);
   const roundId = id || day;
   const existing = await env.DB.prepare('SELECT * FROM rounds WHERE id=?').bind(roundId).first<Round>();
   if (existing) return existing;
   // Wait for the entire archive before sampling: every eligible historical message
   // deserves the same chance, rather than favoring the most recent imported page.
-  if (!(await state(env,'history_complete'))) return null;
+  if (!sourceId && !(await state(env,'history_complete'))) return null;
   for (let attempt=0;attempt<3;attempt++) {
-    const candidate = await env.DB.prepare(`SELECT * FROM messages WHERE eligible=1
+    const candidate = sourceId && id ? await discord<Message>(env,`/channels/${env.SOURCE_CHANNEL_ID}/messages/${sourceId}`).then(m=>({id:m.id,author_id:m.author.id,content:m.content})) : await env.DB.prepare(`SELECT * FROM messages WHERE eligible=1 AND unavailable_until <= ${Date.now()}
       ${id ? 'ORDER BY random()' : 'ORDER BY CASE WHEN used_at IS NULL THEN 0 ELSE 1 END, CASE WHEN used_at IS NOT NULL THEN used_at END, random()'} LIMIT 1`)
       .first<{id:string;author_id:string;content:string}>();
     if (!candidate) return null;
@@ -85,9 +87,15 @@ export async function createRound(env: Env, id?: string): Promise<Round | null> 
       await env.DB.prepare('UPDATE messages SET eligible=0 WHERE id=?').bind(candidate.id).run();
       continue;
     }
+    const media=await validateMedia(live);
+    if(!media || roundPayload({id:roundId,day,practice:id?1:0,source_id:live.id,author_id:live.author.id,content:live.content,media_json:JSON.stringify(media),status:'pending',discord_id:null,revealed:0}).content.length>2000) {
+      await env.DB.prepare('UPDATE messages SET unavailable_until=? WHERE id=?').bind(Date.now()+86400000,live.id).run();
+      if(sourceId)return null;
+      continue;
+    }
     await env.DB.batch([
-      env.DB.prepare('INSERT OR IGNORE INTO rounds(id,day,practice,source_id,author_id,content) VALUES (?,?,?,?,?,?)')
-        .bind(roundId,day,id?1:0,live.id,live.author.id,live.content),
+      env.DB.prepare('INSERT OR IGNORE INTO rounds(id,day,practice,source_id,author_id,content,media_json) VALUES (?,?,?,?,?,?,?)')
+        .bind(roundId,day,id?1:0,live.id,live.author.id,live.content,JSON.stringify(media)),
       ...(id ? [] : [env.DB.prepare('UPDATE messages SET used_at=? WHERE id=?').bind(new Date().toISOString(),live.id)]),
     ]);
     return env.DB.prepare('SELECT * FROM rounds WHERE id=?').bind(roundId).first<Round>();
@@ -97,11 +105,11 @@ export async function createRound(env: Env, id?: string): Promise<Round | null> 
 
 async function existingPost(env: Env, marker: string): Promise<string | undefined> {
   const recent = await discord<Message[]>(env,`/channels/${env.GAME_CHANNEL_ID}/messages?limit=100`);
-  return recent.find(m => m.author.id===env.DISCORD_APPLICATION_ID && m.embeds?.some(e => e.footer?.text.startsWith(marker)))?.id;
+  return recent.find(m => m.author.id===env.DISCORD_APPLICATION_ID && (m.embeds?.some(e => e.footer?.text.startsWith(marker) || e.url?.endsWith(`#${encodeURIComponent(marker)}`)) || m.components?.some(row=>row.components?.some(c=>c.custom_id===marker))))?.id;
 }
 export async function publishRound(env: Env, round: Round) {
   if (round.discord_id) return;
-  const found = await existingPost(env,`Round ${round.id} ·`);
+  const found = await existingPost(env,`play:${round.id}`);
   const message = found ? {id:found} : await discord<{id:string}>(env,`/channels/${env.GAME_CHANNEL_ID}/messages`,'POST', {
     ...roundPayload(round), nonce:await nonce(`round:${round.id}`), enforce_nonce:true,
   });
@@ -135,11 +143,11 @@ export async function publishResults(env: Env) {
       if (latest?.published_id) return;
       const marker = `Result ${guess.interaction_id}`;
       const found = await existingPost(env,marker);
+      const round=await env.DB.prepare('SELECT * FROM rounds WHERE id=?').bind(guess.round_id).first<Round>();
+      if(!round)return;
+      const payload=resultPayload(guess,round);
       const message = found ? {id:found} : await discord<{id:string}>(env,`/channels/${env.GAME_CHANNEL_ID}/messages`,'POST',{
-        allowed_mentions:noMentions,
-        embeds:[{color:guess.correct?0x57b382:0xca7a76,
-          description:`${guess.correct?'🟩':'🟥'} <@${guess.user_id}> ${guess.correct?'got it right!':'missed this one.'} **1/1**\nCathedral Guesser · ${guess.round_id.startsWith('practice-')?'Practice':guess.round_id}`,
-          footer:{text:marker}}],
+        ...payload,embeds:payload.embeds.map(e=>({...e,url:`https://discord.com/channels/${env.GUILD_ID}/${env.GAME_CHANNEL_ID}/${round.discord_id}#${encodeURIComponent(marker)}`})),
         nonce:await nonce(marker),enforce_nonce:true,
       });
       await env.DB.prepare('UPDATE guesses SET published_id=? WHERE interaction_id=?').bind(message.id,guess.interaction_id).run();
@@ -154,6 +162,7 @@ export async function maintenance(env: Env) {
     await syncHistory(env);
     const round = await createRound(env);
     if (round) await publishRound(env,round);
+    await refreshPreview(env);
     await setState(env,'last_success',new Date().toISOString());
   });
 }
@@ -163,11 +172,25 @@ export async function publishRecaps(env: Env) {
   for(const recap of pending.results) {
     const marker=`Recap ${recap.round_id} / ${recap.page+1}`;
     const found=await existingPost(env,marker);
+    const round=await env.DB.prepare('SELECT * FROM rounds WHERE id=?').bind(recap.round_id).first<Round>();
+    if(!round)continue;
+    const payload=recapPayload(round,recap.content,recap.page);
     const message=found?{id:found}:await discord<{id:string}>(env,`/channels/${env.GAME_CHANNEL_ID}/messages`,'POST',{
-      allowed_mentions:noMentions,
-      embeds:[{title:recap.round_id.startsWith('practice-')?'Cathedral Guesser · Practice recap':'Cathedral Guesser · Daily recap',color:0xbda477,description:recap.content,footer:{text:marker}}],
+      ...payload,embeds:payload.embeds.map(e=>({...e,url:`https://discord.com/channels/${env.GUILD_ID}/${env.GAME_CHANNEL_ID}/${round.discord_id}#${encodeURIComponent(marker)}`})),
       nonce:await nonce(marker),enforce_nonce:true,
     });
     await env.DB.prepare('UPDATE recaps SET published_id=? WHERE round_id=? AND page=?').bind(message.id,recap.round_id,recap.page).run();
   }
+}
+
+// Native previews can take a moment. Use verified metadata only if Discord did
+// not unfurl the link itself; never overwrite a native YouTube/video player.
+export async function refreshPreview(env: Env) {
+  const round=await env.DB.prepare("SELECT * FROM rounds WHERE status='open' AND discord_id IS NOT NULL AND created_at < datetime('now','-1 minute') AND json_array_length(media_json,'$.previews')>0 ORDER BY created_at DESC LIMIT 1").first<Round>();
+  if(!round)return;
+  const message=await discord<Message>(env,`/channels/${env.GAME_CHANNEL_ID}/messages/${round.discord_id}`);
+  const media=parseMedia(round.media_json);
+  if(message.embeds?.some(e=>e.url||e.title||e.description))return;
+  const images=(media.attachments||[]).filter(a=>a.content_type?.startsWith('image/')).map(a=>({image:{url:a.url}}));
+  await discord(env,`/channels/${env.GAME_CHANNEL_ID}/messages/${round.discord_id}`,'PATCH',{embeds:[...images,...(media.previews||[])],allowed_mentions:noMentions});
 }
