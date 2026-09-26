@@ -110,3 +110,8 @@ The midnight transition is covered by date-boundary/DST tests and the same revea
 - Correct guesses now replace the ephemeral picker with a private original-message link; correct players can reopen Guess to retrieve it. Losses still dismiss privately without exposing the answer. Day-end recaps include an Original message link button, alongside the existing source link on the revealed puzzle.
 - Re-enabled private testing through a TEST_DB binding on the same Worker. Only interactions originating in the configured testing channel use that database; scheduled maintenance stays on live data. Guess-triggered result delivery is scoped to the played round. Preserved previous testing records and synchronized author exclusions.
 - Deployed and posted a fresh private practice round. Read-only API verification confirmed three original timestamps, the bold arrow-marked target and the Guess control. All 59 tests and typecheck passed, including private win/loss behavior, live/test routing, timestamp rendering and recap links. User interaction testing remains with the user; no live scores were changed.
+
+## September 26: apply current layout to the live daily post
+
+- Updated the existing daily post in games in place to the current speaker-heading layout. Matched both saved context excerpts to their source neighbors before adding their original timestamps.
+- Verified three timestamps, unchanged Guess controls, and unchanged source, author, message text, media, choices, guess limit, status and Discord message ID. Only context timestamp metadata and the post's display text changed; guesses and results were not edited. Existing embeds were preserved.
