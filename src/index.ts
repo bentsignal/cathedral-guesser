@@ -14,7 +14,7 @@ async function showSelector(env: Env, i: Interaction, roundId: string) {
   }
   const existing = await env.DB.prepare('SELECT * FROM guesses WHERE round_id=? AND user_id=?').bind(roundId,i.member!.user.id).first<Guess>();
   if (existing) return reply(`You already used your one guess. ${existing.correct?'Correct.':'Incorrect.'}`);
-  return reply('\u200b\n\nWho sent it?\n\n\u200b',[
+  return reply('**Who sent it?**',[
     {type:1,components:[{type:5,custom_id:`guess:${round.id}`,placeholder:'Choose someone',min_values:1,max_values:1}]},
   ]);
 }
