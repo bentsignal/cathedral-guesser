@@ -22,7 +22,7 @@ export function roundPayload(round: Round, revealed = false, _total = 0, _correc
   const videoLinks=(media.attachments||[]).filter(a=>a.content_type?.startsWith('video/')).map(a=>a.url);
   const images=(media.attachments||[]).filter(a=>a.content_type?.startsWith('image/')).map(a=>({image:{url:a.url}}));
   const long=quote.length>1400;
-  const header=`**Cathedral Guesser**\n-# ${round.day}${round.practice?' · Practice':''}`;
+  const header=`**${round.day}**${round.practice?' · Practice':''}`;
   const body=long?links(round.content).join('\n'):quote;
   // Quote plain text visually; leave links unwrapped for Discord's native previews.
   const excerpt=body && !links(round.content).length && !long?body.split('\n').map(line=>`> ${line}`).join('\n'):body;
