@@ -34,13 +34,13 @@ export function roundPayload(round: Round, revealed = false, _total = 0, _correc
     return displayQuote(text).split('\n').map(line=>`> ${line}`).join('\n');
   };
   const attachment=(media.attachments||[]).length>0;
-  const target=long?'':`➡ **${quote}${quote&&attachment?'\n':''}${attachment?'See attachment below.':''}**`;
+  const target=long?'':`➡ **???: ${quote}${quote&&attachment?'\n':''}${attachment?'See attachment below.':''}**`;
   const content=[header,long?'':contextLine(context.before),target,long?'':contextLine(context.after),...videoLinks,long?links(round.content).join('\n'):'',
     revealed?`**Sent by** <@${round.author_id}> · [Original message](https://discord.com/channels/${guildId}/${sourceChannel}/${round.source_id})`:'**Who sent it?**'].filter(Boolean).join('\n\n');
   return {
     content,
     allowed_mentions: { parse: [] },
-    embeds:[...(long?[{description:[contextLine(context.before).slice(0,160),`➡ **${quote}${attachment?'\nSee attachment below.':''}**`,contextLine(context.after).slice(0,160)].filter(Boolean).join('\n\n')}]:[]),...images],
+    embeds:[...(long?[{description:[contextLine(context.before).slice(0,160),`➡ **???: ${quote}${attachment?'\nSee attachment below.':''}**`,contextLine(context.after).slice(0,160)].filter(Boolean).join('\n\n')}]:[]),...images],
     components: revealed ? [] : [{ type: 1, components: [{type: 2, style: 1, label: 'Guess', custom_id: `play:${round.id}`}]}],
   };
 }
