@@ -82,3 +82,9 @@ The midnight transition is covered by date-boundary/DST tests and the same revea
 - Media context switches the puzzle to ordered message cards: preceding message, bold arrow-marked target, following message. Images appear in their cards; video/files have clickable watch/open links. Available link metadata supplies previews. Text-only context keeps the existing compact layout.
 - Deployed and posted a real practice puzzle in the private test channel with a neighboring photo. Read-only API verification found three cards, the target in the middle, the contextual image first, a Discord-proxied image URL, and the Guess control.
 - Typecheck and all 58 tests passed, including media retention, speaker masking, card ordering, reveal preservation, and Discord embed count/text limits. In-card videos are clickable rather than inline players; visual review remains with the user. No channel messages were deleted.
+
+## September 26: revert neighboring media cards
+
+- At the user's request, restored compact text context with `[link]` and `[Attachment]` placeholders. Display names and the bold `➡ ???:` target remain; target media still displays normally.
+- Existing saved media context renders as placeholders without deleting stored records. Updated the current private practice post in place and verified its compact format through the API.
+- Deployed successfully. Typecheck and all 56 tests pass, including saved-media-context compatibility and preservation of target attachments. No messages were deleted.

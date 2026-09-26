@@ -2,7 +2,7 @@ import type { Env, Message, Round, Member, Guess } from './types';
 import { discord, DiscordError, noMentions, nonce } from './discord';
 import { eligibleMessage, gameDay, roundPayload, recapPages, resultPayload, recapPayload } from './game';
 
-import { parseMedia, validateMedia, links, publicUrl } from './media';
+import { parseMedia, validateMedia } from './media';
 import {finalizeUnfinished} from './attempts';
 import {eligibleAuthors} from './eligibility';
 import {memberName} from './members';
@@ -65,21 +65,18 @@ export async function createRound(env: Env, id?: string, sourceId?: string): Pro
     }
     const before=await discord<Message[]>(env,`/channels/${env.SOURCE_CHANNEL_ID}/messages?before=${live.id}&limit=1`);
     const after=await discord<Message[]>(env,`/channels/${env.SOURCE_CHANNEL_ID}/messages?after=${live.id}&limit=1`);
-    const contextEntry=async(m?:Message)=>{
+    const contextText=(m?:Message)=>{
       if(!m)return undefined;
-      const urls=links(m.content).filter(url=>publicUrl(url)&&url.length<=1000).slice(0,2);
-      const plain=(m.content||'').replace(/https?:\/\/[^\s<>]+/g,'').trim();
-      const text=plain.slice(0,260)+(plain.length>260?'…':'');
-      const attachments=(m.attachments||[]).filter(a=>publicUrl(a.url)&&a.url.length<=1000).slice(0,2);
-      if(!text&&!urls.length&&!attachments.length)return undefined;
-      const member=m.author.id===live.author.id?null:pool.members.find(person=>person.user.id===m.author.id)||await currentMember(env,m.author.id);
-      const name=m.author.id===live.author.id?'???':(member?memberName(member):m.author.global_name||m.author.username).slice(0,80);
-      if(!urls.length&&!attachments.length)return {text,name};
-      const checked=await validateMedia({...m,content:urls.join(' '),attachments});
-      return {text,name,urls,media:{attachments,previews:checked?.previews||[]}};
+      const text=(m.content||'').replace(/https?:\/\/[^\s<>]+/g,'[link]');
+      return [text.slice(0,260)+(text.length>260?'…':''),m.attachments?.length?'[Attachment]':''].filter(Boolean).join(' ');
     };
-    const [previous,following]=await Promise.all([contextEntry(before[0]),contextEntry(after[0])]);
-    const context=JSON.stringify({before:previous,after:following});
+    const contextEntry=async(m?:Message)=>{
+      const text=contextText(m);if(!m||!text)return undefined;
+      if(m.author.id===live.author.id)return {text,name:'???'};
+      const member=pool.members.find(person=>person.user.id===m.author.id)||await currentMember(env,m.author.id);
+      return {text,name:(member?memberName(member):m.author.global_name||m.author.username).slice(0,80)};
+    };
+    const context=JSON.stringify({before:await contextEntry(before[0]),after:await contextEntry(after[0])});
     // Reserve room for context without disqualifying a long target message.
     const preview={id:roundId,day,practice:id?1:0,source_id:live.id,author_id:live.author.id,content:live.content,media_json:JSON.stringify(media),context_json:context,guess_limit:3,status:'pending',discord_id:null,revealed:0};
     const safeContext=roundPayload(preview).content.length<=2000?context:'{}';
