@@ -22,7 +22,7 @@ async function showSelector(env: Env, i: Interaction, roundId: string,page=0,not
   const allMembers=await roster(env);
   const eligible:string[]|null=round.eligible_authors_json?JSON.parse(round.eligible_authors_json):null;
   const controls=memberControls(eligible?allMembers.filter(m=>eligible.includes(m.user.id)):allMembers,round.id,used,attempts.results.map(a=>a.guessed_id),page);
-  return reply([notice,used?`${resultSquares(0,used,limit)} · ${limit-used} ${limit-used===1?'guess':'guesses'} left`:'','**Who sent it?**'].filter(Boolean).join('\n\n'),controls);
+  return reply([notice,used?`${resultSquares(0,used,limit)} · ${limit-used} ${limit-used===1?'guess':'guesses'} left`:'','**Who sent the bolded message?**'].filter(Boolean).join('\n\n'),controls);
 }
 async function submitGuess(env: Env, i: Interaction, roundId: string,expected=0) {
   const guessed = i.data?.values?.[0];

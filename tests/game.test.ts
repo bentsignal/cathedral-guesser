@@ -31,7 +31,7 @@ describe('daily game rules',()=>{
     const closed=roundPayload(round,true,5,2,'guild','channel');
     expect(closed.components).toEqual([]);
     expect(closed.content).toContain('<@456>');
-    expect(open).toContain('Who sent it?');
+    expect(open).toContain('Who sent the bolded message?');
     expect(open).not.toContain('takebacks');
   });
 });

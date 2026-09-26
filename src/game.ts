@@ -38,21 +38,21 @@ export function roundPayload(round: Round, revealed = false, _total = 0, _correc
   const header=`**${round.day}**${round.practice?' · Practice':''}`;
   type ContextEntry=string|{text:string;name:string;timestamp?:string;urls?:string[];media?:{attachments?:unknown[]}};
   let context:{before?:ContextEntry;after?:ContextEntry}={};try{context=JSON.parse(round.context_json||'{}');}catch{}
-  const contextLine=(entry?:ContextEntry)=>{
+  const contextLine=(entry?:ContextEntry,maxText=Infinity)=>{
     if(!entry)return '';
     const text=typeof entry==='string'?entry:`${entry.name}: ${[entry.text,entry.urls?.length?'[link]':'',entry.media?.attachments?.length?'[Attachment]':''].filter(Boolean).join(' ')}`;
     const time=typeof entry==='string'?'':stamp(entry.timestamp);
-    return [time,displayQuote(text)].filter(Boolean).join(' · ').split('\n').map(line=>`> ${line}`).join('\n');
+    return [displayQuote(text).slice(0,maxText),time].filter(Boolean).join(' · ').split('\n').map(line=>`> ${line}`).join('\n');
   };
   const attachment=(media.attachments||[]).length>0;
   const targetTime=sourceStamp(round.source_id);
   const target=long?'':`➡ **???: ${quote}${quote&&attachment?'\n':''}${attachment?'See attachment below.':''}**${targetTime?` · ${targetTime}`:''}`;
   const content=[header,long?'':contextLine(context.before),target,long?'':contextLine(context.after),...videoLinks,long?links(round.content).join('\n'):'',
-    revealed?`**Sent by** <@${round.author_id}> · [Original message](https://discord.com/channels/${guildId}/${sourceChannel}/${round.source_id})`:'**Who sent it?**'].filter(Boolean).join('\n\n');
+    revealed?`**Sent by** <@${round.author_id}> · [Original message](https://discord.com/channels/${guildId}/${sourceChannel}/${round.source_id})`:'**Who sent the bolded message?**'].filter(Boolean).join('\n\n');
   return {
     content,
     allowed_mentions: { parse: [] },
-    embeds:[...(long?[{description:[contextLine(context.before).slice(0,160),`➡ **???: ${quote}${attachment?'\nSee attachment below.':''}**${targetTime?` · ${targetTime}`:''}`,contextLine(context.after).slice(0,160)].filter(Boolean).join('\n\n')}]:[]),...images],
+    embeds:[...(long?[{description:[contextLine(context.before,120),`➡ **???: ${quote}${attachment?'\nSee attachment below.':''}**${targetTime?` · ${targetTime}`:''}`,contextLine(context.after,120)].filter(Boolean).join('\n\n')}]:[]),...images],
     components: revealed ? [] : [{ type: 1, components: [{type: 2, style: 1, label: 'Guess', custom_id: `play:${round.id}`}]}],
   };
 }
