@@ -57,7 +57,7 @@ describe('readable clues and member choices',()=>{
  });
  it('marks the target between anonymous neighboring messages without exposing its author',()=>{
   const round:Round={id:'r',day:'2026',source_id:'source',author_id:'secret',practice:1,status:'open',discord_id:null,revealed:0,content:'target',context_json:JSON.stringify({before:'previous <@123456789012345678>',after:'next'})};
-  const payload=roundPayload(round);expect(payload.content.indexOf('previous')).toBeLessThan(payload.content.indexOf('➡ **???: target**'));
+  const payload=roundPayload(round);expect(payload.content.indexOf('previous')).toBeLessThan(payload.content.indexOf('👤 **???**\n**target**'));
   expect(payload.content.indexOf('target')).toBeLessThan(payload.content.indexOf('next'));
   expect(payload.content).not.toContain('Before');expect(payload.content).not.toContain('After');expect(payload.content).not.toContain('Guess this message');
   expect(payload.content).not.toContain('secret');expect(payload.content).not.toContain('<@123');

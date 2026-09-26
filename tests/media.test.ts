@@ -8,7 +8,7 @@ afterEach(()=>vi.unstubAllGlobals());
 describe('clean Discord output',()=>{
   it('shows clickable links in message content, where Discord can unfurl them',()=>{
     const payload=roundPayload(round);
-    expect(payload.content).toBe('**2026-09-26**\n\n➡ **???: https://www.youtube.com/watch?v=abc_def**\n\n**Who sent the bolded message?**');
+    expect(payload.content).toBe('**2026-09-26**\n\n👤 **???**\n**https://www.youtube.com/watch?v=abc_def**\n\n**Who sent the bolded message?**');
     expect(payload.embeds).toEqual([]);
   });
   it('renders image-only and video-only messages without exposing the sender',()=>{
@@ -17,7 +17,7 @@ describe('clean Discord output',()=>{
     const payload=roundPayload({...round,content:'',media_json:JSON.stringify({attachments:[image,{...image,url:'https://cdn.discordapp.com/attachments/1/2/a.mp4',content_type:'video/mp4'}]})});
     expect(payload.embeds[0]).toEqual({image:{url:image.url}});
     expect(payload.content).toContain('a.mp4');
-    expect(payload.content).toContain('➡ **???: See attachment below.**');
+    expect(payload.content).toContain('👤 **???**\n**See attachment below.**');
     expect(JSON.stringify(payload)).not.toContain('Guess this image');
     expect(payload.content).not.toContain('author');
   });
@@ -34,7 +34,7 @@ it('spaces multi-guess results and labels context without revealing the target',
   const result=resultPayload({round_id:r.id,user_id:'player',guessed_id:'author',correct:1,attempts_used:2,interaction_id:'id',published_id:null},r);
   expect(result.embeds[0].description).toBe('<@player> got it right in 2 guesses.\n\n🟥🟩⬜');
   const content=roundPayload(r).content;
-  expect(content).toContain('???: reply');expect(content).toContain('hello');expect(content).not.toContain('<@author>');
+  expect(content).toContain('👤 ???\n> reply');expect(content).toContain('hello');expect(content).not.toContain('<@author>');
 });
 describe('link availability',()=>{
   it('blocks local addresses, IPs, userinfo, ports and non-HTTP schemes',()=>{
@@ -78,9 +78,9 @@ it('renders saved media context as placeholders while keeping target media',()=>
  const image={id:'image',url:'https://cdn.discordapp.com/attachments/1/2/a.png',filename:'a.png',content_type:'image/png'};
  const context={before:{name:'Alice',text:'look',urls:['https://example.com/page'],media:{attachments:[image]}},after:{name:'???',text:'okay'}};
  const payload=roundPayload({...round,content:'',media_json:JSON.stringify({attachments:[image]}),context_json:JSON.stringify(context)});
- expect(payload.content).toContain('Alice: look \\[link\\] \\[Attachment\\]');
+ expect(payload.content).toContain('🧑 Alice\n> look \\[link\\] \\[Attachment\\]');
  expect(payload.content).not.toContain('example.com');
- expect(payload.content).toContain('➡ **???: See attachment below.**');
+ expect(payload.content).toContain('👤 **???**\n**See attachment below.**');
  expect(payload.embeds).toEqual([{image:{url:image.url}}]);
 });
 

@@ -40,19 +40,22 @@ export function roundPayload(round: Round, revealed = false, _total = 0, _correc
   let context:{before?:ContextEntry;after?:ContextEntry}={};try{context=JSON.parse(round.context_json||'{}');}catch{}
   const contextLine=(entry?:ContextEntry,maxText=Infinity)=>{
     if(!entry)return '';
-    const text=typeof entry==='string'?entry:`${entry.name}: ${[entry.text,entry.urls?.length?'[link]':'',entry.media?.attachments?.length?'[Attachment]':''].filter(Boolean).join(' ')}`;
+    const text=typeof entry==='string'?entry:[entry.text,entry.urls?.length?'[link]':'',entry.media?.attachments?.length?'[Attachment]':''].filter(Boolean).join(' ');
+    const name=typeof entry==='string'?'':entry.name;
     const time=typeof entry==='string'?'':stamp(entry.timestamp);
-    return [displayQuote(text).slice(0,maxText),time].filter(Boolean).join(' · ').split('\n').map(line=>`> ${line}`).join('\n');
+    const heading=name?[`${name==='???'?'👤':'🧑'} ${displayQuote(name).slice(0,60)}`,time].filter(Boolean).join(' · '):'';
+    return [heading,displayQuote(text).slice(0,maxText)].filter(Boolean).join('\n').split('\n').map(line=>`> ${line}`).join('\n');
   };
   const attachment=(media.attachments||[]).length>0;
   const targetTime=sourceStamp(round.source_id);
-  const target=long?'':`➡ **???: ${quote}${quote&&attachment?'\n':''}${attachment?'See attachment below.':''}**${targetTime?` · ${targetTime}`:''}`;
+  const targetBlock=`👤 **???**${targetTime?` · ${targetTime}`:''}\n**${quote}${quote&&attachment?'\n':''}${attachment?'See attachment below.':''}**`;
+  const target=long?'':targetBlock;
   const content=[header,long?'':contextLine(context.before),target,long?'':contextLine(context.after),...videoLinks,long?links(round.content).join('\n'):'',
     revealed?`**Sent by** <@${round.author_id}> · [Original message](https://discord.com/channels/${guildId}/${sourceChannel}/${round.source_id})`:'**Who sent the bolded message?**'].filter(Boolean).join('\n\n');
   return {
     content,
     allowed_mentions: { parse: [] },
-    embeds:[...(long?[{description:[contextLine(context.before,120),`➡ **???: ${quote}${attachment?'\nSee attachment below.':''}**${targetTime?` · ${targetTime}`:''}`,contextLine(context.after,120)].filter(Boolean).join('\n\n')}]:[]),...images],
+    embeds:[...(long?[{description:[contextLine(context.before,100),targetBlock,contextLine(context.after,100)].filter(Boolean).join('\n\n')}]:[]),...images],
     components: revealed ? [] : [{ type: 1, components: [{type: 2, style: 1, label: 'Guess', custom_id: `play:${round.id}`}]}],
   };
 }
