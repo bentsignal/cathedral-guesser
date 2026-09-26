@@ -63,7 +63,7 @@ export async function createRound(env: Env, id?: string): Promise<Round | null> 
   // Wait for the entire archive before sampling: every eligible historical message
   // deserves the same chance, rather than favoring the most recent imported page.
   if (!(await state(env,'history_complete'))) return null;
-  for (let attempt=0;attempt<5;attempt++) {
+  for (let attempt=0;attempt<3;attempt++) {
     const candidate = await env.DB.prepare(`SELECT * FROM messages WHERE eligible=1
       ORDER BY CASE WHEN used_at IS NULL THEN 0 ELSE 1 END, CASE WHEN used_at IS NOT NULL THEN used_at END, random() LIMIT 1`)
       .first<{id:string;author_id:string;content:string}>();
@@ -110,7 +110,7 @@ export async function publishRound(env: Env, round: Round) {
 export async function revealOldRounds(env: Env) {
   const day = gameDay(new Date(),env.TIME_ZONE);
   await env.DB.prepare("UPDATE rounds SET status='closed' WHERE day < ? AND status!='closed'").bind(day).run();
-  const old = await env.DB.prepare("SELECT * FROM rounds WHERE status='closed' AND revealed=0 LIMIT 3").all<Round>();
+  const old = await env.DB.prepare("SELECT * FROM rounds WHERE status='closed' AND revealed=0 LIMIT 1").all<Round>();
   for (const round of old.results) {
     if (round.discord_id) {
       const counts = await env.DB.prepare('SELECT COUNT(*) AS total, COALESCE(SUM(correct),0) AS correct FROM guesses WHERE round_id=?').bind(round.id).first<{total:number;correct:number}>();
@@ -122,7 +122,7 @@ export async function revealOldRounds(env: Env) {
   }
 }
 export async function publishResults(env: Env) {
-  const pending = await env.DB.prepare('SELECT * FROM guesses WHERE published_id IS NULL LIMIT 5').all<Guess>();
+  const pending = await env.DB.prepare('SELECT * FROM guesses WHERE published_id IS NULL LIMIT 3').all<Guess>();
   for (const guess of pending.results) {
     await withLease(env,`result:${guess.interaction_id}`,async () => {
       const latest = await env.DB.prepare('SELECT published_id FROM guesses WHERE interaction_id=?').bind(guess.interaction_id).first<Guess>();

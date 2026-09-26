@@ -4,7 +4,7 @@ export function gameDay(now: Date, timeZone: string): string {
 }
 export function eligibleMessage(message: Message): boolean {
   return !message.author.bot && !message.webhook_id && [0, 19].includes(message.type)
-    && message.content.trim().length > 0 && message.content.length <= 3500;
+    && message.content.trim().length > 0 && message.content.length <= 3500 && displayQuote(message.content).length <= 3500;
 }
 export function displayQuote(content: string): string {
   // Preserve the words while preventing mentions, links, and Discord markdown tricks.
