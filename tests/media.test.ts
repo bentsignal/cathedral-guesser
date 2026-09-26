@@ -8,7 +8,7 @@ afterEach(()=>vi.unstubAllGlobals());
 describe('clean Discord output',()=>{
   it('shows clickable links in message content, where Discord can unfurl them',()=>{
     const payload=roundPayload(round);
-    expect(payload.content).toBe('**Cathedral Guesser · 2026-09-26**\n\nhttps://www.youtube.com/watch?v=abc_def\n\n**Who sent it?**');
+    expect(payload.content).toBe('Cathedral Guesser · 2026-09-26\n\nhttps://www.youtube.com/watch?v=abc_def\n\nWho sent it?\n\n\u200b');
     expect(payload.embeds).toEqual([]);
   });
   it('renders image-only and video-only messages without exposing the sender',()=>{

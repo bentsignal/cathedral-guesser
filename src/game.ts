@@ -22,8 +22,8 @@ export function roundPayload(round: Round, revealed = false, _total = 0, _correc
   const videoLinks=(media.attachments||[]).filter(a=>a.content_type?.startsWith('video/')).map(a=>a.url);
   const images=(media.attachments||[]).filter(a=>a.content_type?.startsWith('image/')).map(a=>({image:{url:a.url}}));
   const long=quote.length>1400;
-  const content=[`**${roundTitle(round)}**`,long?links(round.content).join('\n'):quote,...videoLinks,
-    revealed?`Sent by <@${round.author_id}> · [Original message](https://discord.com/channels/${guildId}/${sourceChannel}/${round.source_id})`:'**Who sent it?**'].filter(Boolean).join('\n\n');
+  const content=[roundTitle(round),long?links(round.content).join('\n'):quote,...videoLinks,
+    revealed?`Sent by <@${round.author_id}> · [Original message](https://discord.com/channels/${guildId}/${sourceChannel}/${round.source_id})`:'Who sent it?\n\n\u200b'].filter(Boolean).join('\n\n');
   return {
     content,
     allowed_mentions: { parse: [] },

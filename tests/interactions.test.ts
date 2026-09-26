@@ -71,3 +71,29 @@ describe('Discord endpoint security',()=>{
     expect(ctx.waitUntil).not.toHaveBeenCalled();
   });
 });
+
+describe('private guess dismissal',()=>{
+  it('deletes the private selector after saving, with no duplicate result reply',async()=>{
+    const storage=await import('../src/storage');
+    vi.spyOn(storage,'publishResults').mockResolvedValue();
+    const requests:{url:string;method:string}[]=[];
+    vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{
+      requests.push({url:String(input),method:init?.method||'GET'});
+      if(init?.method==='DELETE')return new Response(null,{status:204});
+      return Response.json({user:{id:'123456789012345678',bot:false}});
+    });
+    const first=vi.fn().mockResolvedValue({correct:1});
+    const s=await signing();
+    const env={DISCORD_PUBLIC_KEY:s.publicKey,DISCORD_APPLICATION_ID:'app',GUILD_ID:'guild',TIME_ZONE:'America/New_York',DB:{prepare:()=>({bind:()=>({first})})}} as unknown as Env;
+    let pending:Promise<unknown>|undefined;
+    const ctx={waitUntil:(p:Promise<unknown>)=>{pending=p;}} as ExecutionContext;
+    const interaction={type:3,id:'interaction',token:'test-token',application_id:'app',guild_id:'guild',member:{user:{id:'player'}},data:{custom_id:'guess:round',values:['123456789012345678']}};
+    const response=await worker.fetch(await s.request(JSON.stringify(interaction)),env,ctx);
+    expect(await response.json()).toEqual({type:6});
+    await pending;
+    expect(first).toHaveBeenCalledOnce();
+    expect(requests).toContainEqual({url:'https://discord.com/api/v10/webhooks/app/test-token/messages/@original',method:'DELETE'});
+    expect(requests.some(r=>r.method==='PATCH')).toBe(false);
+    expect(storage.publishResults).toHaveBeenCalledOnce();
+  });
+});

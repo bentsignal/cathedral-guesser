@@ -14,7 +14,7 @@ async function showSelector(env: Env, i: Interaction, roundId: string) {
   }
   const existing = await env.DB.prepare('SELECT * FROM guesses WHERE round_id=? AND user_id=?').bind(roundId,i.member!.user.id).first<Guess>();
   if (existing) return reply(`You already used your one guess. ${existing.correct?'Correct.':'Incorrect.'}`);
-  return reply('**Who sent it?**\nOne guess. Selecting a name submits it.',[
+  return reply('\u200b\n\nWho sent it?\n\n\u200b',[
     {type:1,components:[{type:5,custom_id:`guess:${round.id}`,placeholder:'Choose someone',min_values:1,max_values:1}]},
   ]);
 }
@@ -36,7 +36,7 @@ async function submitGuess(env: Env, i: Interaction, roundId: string) {
     const previous = await env.DB.prepare('SELECT * FROM guesses WHERE round_id=? AND user_id=?').bind(roundId,userId).first<Guess>();
     return reply(previous ? `Your guess was already locked in. ${previous.correct?'🟩 Correct!':'🟥 Incorrect.'} You get one guess per round.` : 'This round has ended. Your guess was not recorded.');
   }
-  return reply(`${saved.correct?'Correct.':'Incorrect.'}`);
+  return null;
 }
 function isAdmin(i: Interaction) {
   const permissions = BigInt(i.member?.permissions || '0');
@@ -100,7 +100,10 @@ async function handle(env: Env, i: Interaction) {
       else if (action==='guess') body=await submitGuess(env,i,id);
       else body=reply('That control is no longer supported. Try `/guesser play`.');
     }
-    await editReply(env,i,body);
+    if(body===null) {
+      // Remove the private selector entirely after a saved guess.
+      await discord(env,`/webhooks/${env.DISCORD_APPLICATION_ID}/${i.token}/messages/@original`,'DELETE');
+    } else await editReply(env,i,body);
     if (i.data?.custom_id?.startsWith('guess:')) {
       try { await publishResults(env); }
       catch { console.error('Public result delivery deferred to scheduled retry'); }
@@ -108,7 +111,7 @@ async function handle(env: Env, i: Interaction) {
   } catch (error) {
     console.error('Interaction failed',error instanceof Error ? error.name : 'UnknownError');
     // Do not claim a failed request necessarily means no guess was recorded.
-    try { await editReply(env,i,reply('Something went wrong while finishing that request. Your guess may already be saved; use **Make my guess** to check. Saved guesses cannot be changed.')); }
+    try { await editReply(env,i,reply('Something went wrong while finishing that request. Your guess may already be saved; use **Guess** to check. Saved guesses cannot be changed.')); }
     catch { console.error('Unable to deliver private error response'); }
   }
 }
