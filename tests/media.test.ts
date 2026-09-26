@@ -83,3 +83,13 @@ it('renders saved media context as placeholders while keeping target media',()=>
  expect(payload.content).toContain('➡ **???: See attachment below.**');
  expect(payload.embeds).toEqual([{image:{url:image.url}}]);
 });
+
+it('adds original timestamps without exposing an original-message link until reveal',()=>{
+ const dated={...round,source_id:'156935745314095105',context_json:JSON.stringify({before:{name:'Alice',text:'before',timestamp:'2016-01-01T00:00:00Z'},after:{name:'???',text:'after',timestamp:'2016-01-01T00:01:00Z'}})};
+ const payload=roundPayload(dated);
+ expect(payload.content.match(/<t:\d+:f>/g)).toHaveLength(3);
+ expect(payload.content).not.toContain('discord.com/channels');
+ expect(roundPayload(dated,true,0,0,'guild','source').content).toContain('https://discord.com/channels/guild/source/156935745314095105');
+ const recap=recapPayload(dated,'results',0,'guild','source');
+ expect(recap.components?.[0].components[0]).toMatchObject({style:5,label:'Original message',url:'https://discord.com/channels/guild/source/156935745314095105'});
+});

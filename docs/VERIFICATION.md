@@ -102,3 +102,11 @@ The midnight transition is covered by date-boundary/DST tests and the same revea
 - Applied the user's additional account exclusion through the existing live source-scoped setting. Future target selection and choices now exclude that account; the requested primary account remains eligible.
 - Verified the excluded account is not today's answer before removing it from today's saved choice pool. The current puzzle remains open with 24 choices, its correct author selectable and its three-guess limit unchanged. No attempts, scores, source messages or puzzle content were modified.
 - This was a live configuration change using existing functionality; no Worker redeployment was needed. Already-open private menus refresh on reopening or when an excluded option is submitted, without consuming that selection.
+
+## September 26: clearer instructions, timestamps and source links
+
+- Rewrote help around three consecutive messages from everything and guessing the middle, arrow-marked message. Explained same-speaker `???`, three attempts and result squares directly.
+- New context saves original timestamps; targets derive their timestamp from the source message ID. Discord displays absolute dates/times in the viewer's locale. Legacy context remains readable.
+- Correct guesses now replace the ephemeral picker with a private original-message link; correct players can reopen Guess to retrieve it. Losses still dismiss privately without exposing the answer. Day-end recaps include an Original message link button, alongside the existing source link on the revealed puzzle.
+- Re-enabled private testing through a TEST_DB binding on the same Worker. Only interactions originating in the configured testing channel use that database; scheduled maintenance stays on live data. Guess-triggered result delivery is scoped to the played round. Preserved previous testing records and synchronized author exclusions.
+- Deployed and posted a fresh private practice round. Read-only API verification confirmed three original timestamps, the bold arrow-marked target and the Guess control. All 59 tests and typecheck passed, including private win/loss behavior, live/test routing, timestamp rendering and recap links. User interaction testing remains with the user; no live scores were changed.

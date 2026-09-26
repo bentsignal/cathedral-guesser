@@ -72,9 +72,9 @@ export async function createRound(env: Env, id?: string, sourceId?: string): Pro
     };
     const contextEntry=async(m?:Message)=>{
       const text=contextText(m);if(!m||!text)return undefined;
-      if(m.author.id===live.author.id)return {text,name:'???'};
+      if(m.author.id===live.author.id)return {text,name:'???',timestamp:m.timestamp};
       const member=pool.members.find(person=>person.user.id===m.author.id)||await currentMember(env,m.author.id);
-      return {text,name:(member?memberName(member):m.author.global_name||m.author.username).slice(0,80)};
+      return {text,name:(member?memberName(member):m.author.global_name||m.author.username).slice(0,80),timestamp:m.timestamp};
     };
     const context=JSON.stringify({before:await contextEntry(before[0]),after:await contextEntry(after[0])});
     // Reserve room for context without disqualifying a long target message.
@@ -125,8 +125,8 @@ export async function revealOldRounds(env: Env) {
     await env.DB.prepare('UPDATE rounds SET revealed=1 WHERE id=?').bind(round.id).run();
   }
 }
-export async function publishResults(env: Env) {
-  const pending = await env.DB.prepare('SELECT * FROM guesses WHERE published_id IS NULL LIMIT 2').all<Guess>();
+export async function publishResults(env: Env,roundId?:string) {
+  const pending = roundId?await env.DB.prepare('SELECT * FROM guesses WHERE published_id IS NULL AND round_id=? LIMIT 2').bind(roundId).all<Guess>():await env.DB.prepare('SELECT * FROM guesses WHERE published_id IS NULL LIMIT 2').all<Guess>();
   for (const guess of pending.results) {
     await withLease(env,`result:${guess.interaction_id}`,async () => {
       const latest = await env.DB.prepare('SELECT published_id FROM guesses WHERE interaction_id=?').bind(guess.interaction_id).first<Guess>();
@@ -163,7 +163,7 @@ export async function publishRecaps(env: Env) {
     const found=await existingPost(env,marker);
     const round=await env.DB.prepare('SELECT * FROM rounds WHERE id=?').bind(recap.round_id).first<Round>();
     if(!round)continue;
-    const payload=recapPayload(round,recap.content,recap.page);
+    const payload=recapPayload(round,recap.content,recap.page,env.GUILD_ID,env.SOURCE_CHANNEL_ID);
     const message=found?{id:found}:await discord<{id:string}>(env,`/channels/${env.GAME_CHANNEL_ID}/messages`,'POST',{
       ...payload,embeds:payload.embeds.map(e=>({...e,url:`https://discord.com/channels/${env.GUILD_ID}/${env.GAME_CHANNEL_ID}/${round.discord_id}#${encodeURIComponent(marker)}`})),
       nonce:await nonce(marker),enforce_nonce:true,

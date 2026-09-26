@@ -96,7 +96,7 @@ describe('resumable history and daily lifecycle',()=>{
       return response(msg('1'));
     }));
     const round=await createRound(env,'practice-context','1');
-    expect(JSON.parse(round!.context_json!)).toEqual({before:{text:'hello',name:'Display name'},after:{text:'reply',name:'???'}});
+    expect(JSON.parse(round!.context_json!)).toEqual({before:{text:'hello',name:'Display name',timestamp:'2016-01-01T00:00:00Z'},after:{text:'reply',name:'???',timestamp:'2016-01-01T00:00:00Z'}});
   });
   it('stores the exact eligible-author list alongside the puzzle',async()=>{
     vi.stubGlobal('fetch',vi.fn(async(url:any)=>String(url).includes('/members/')?response({user:{id:'author'}}):String(url).includes('?')?response([]):response(msg('1'))));

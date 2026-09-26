@@ -9,11 +9,11 @@ A Discord-native daily guessing game on **Cloudflare Workers + D1**. No always-o
 Every day at **midnight America/New_York** (including daylight saving changes), the bot posts a random historical message, image, video, or link. Click **Guess** to open your private member selector. Selecting a name uses one attempt.
 
 - Each player gets up to three guesses; a correct answer ends their round.
-- The picker lists only current human members with more than 100 messages in the source channel, alphabetically in groups of 25 (up to 100 per page). Incorrect guesses show private progress and remove the chosen name. After finishing, the bot dismisses its private picker after verifying that it is an ephemeral response owned by this application. Channel messages are never deleted.
+- The picker lists only current human members with more than 100 messages in the source channel, alphabetically in groups of 25 (up to 100 per page). Incorrect guesses show private progress and remove the chosen name. A correct guess replaces the private picker with a link to the original message. After three misses, the bot dismisses its private picker after verifying that it is an ephemeral response owned by this application. Channel messages are never deleted.
 - A public result appears only after a correct answer or the third miss, e.g. “got it right in 2 guesses” followed by `🟥🟩⬜`. Guessed names stay private.
 - The nightly recap lists **everyone who played**, with all correct players first and all incorrect players afterward. Long recaps are paginated.
 - At the next reset, yesterday’s original post reveals the author, a link to the source message.
-- Each new puzzle includes short excerpts of the immediately preceding and following messages, without before/after labels. An arrow and bold text mark the target; attachments use “See attachment below.” Other speakers use their current display name (or account name if no longer a member); the target author is labeled `???`. Context links are shown as `[link]`, and attachments as `[Attachment]`. Command-like targets (slash commands and common bot prefixes) are excluded.
+- Each new puzzle includes short excerpts of the immediately preceding and following messages, without before/after labels. An arrow and bold text mark the target; attachments use “See attachment below.” Each message shows its original date and time. Other speakers use their current display name (or account name if no longer a member); the target author is labeled `???`. Context links are shown as `[link]`, and attachments as `[Attachment]`. Command-like targets (slash commands and common bot prefixes) are excluded.
 - Quotes redact user/role and channel mentions; they never ping anyone. Links remain clickable.
 - `/guesser-admin practice` creates an independent practice round. Practice never affects daily standings.
 
@@ -88,7 +88,7 @@ Never commit `.dev.vars`, `.env` files, credentials, downloaded message archives
 
 The same bot and Worker now use the dedicated `cathedral-guesser-cathedral-live` D1 database. Live standings start empty. Only the source-history timestamp, author-count cache, exclusions and search cooldown were carried over; no testing puzzles, guesses or recaps were copied.
 
-The former `cathedral-guesser-cathedral-test` database and private testing channel are preserved as archives. Archived puzzle controls will report that their rounds are closed/unavailable because the active Worker uses the live database. Practice rounds created in the live deployment still remain excluded from daily statistics.
+The former `cathedral-guesser-cathedral-test` database and private testing channel are preserved as archives. Interactions in the private testing channel route to the separate TEST_DB binding. Practice tests there do not affect live scores; automatic scheduled maintenance runs only against the live database. Practice rounds created in the live deployment still remain excluded from daily statistics.
 
 ## Operations
 

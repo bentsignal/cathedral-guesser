@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
-import worker from '../src/index';
+import worker, {interactionEnv} from '../src/index';
 import { discord, dismissPrivatePicker, verifySignature } from '../src/discord';
 import { gameDay } from '../src/game';
 import type { Env } from '../src/types';
@@ -43,16 +43,18 @@ describe('Discord endpoint security',()=>{
 });
 
 describe('non-destructive guess completion',()=>{
-  it('dismisses only the finished private bot response',async()=>{
+  it.each([0,1])('handles a completed guess privately (correct=%s)',async(correct)=>{
     const storage=await import('../src/storage');
     vi.spyOn(storage,'publishResults').mockResolvedValue();
     const requests:{url:string;method:string}[]=[];
+    const privateBodies:string[]=[];
     vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{
       requests.push({url:String(input),method:init?.method||'GET'});
+      if(init?.method==='PATCH')privateBodies.push(String(init.body));
       if(init?.method==='DELETE')return new Response(null,{status:204});
       return Response.json({user:{id:'123456789012345678',bot:false},flags:64,author:{id:'app'}});
     });
-    const first=vi.fn().mockResolvedValue({correct:1});
+    const first=vi.fn().mockResolvedValue({correct,source_id:'source'});
     const s=await signing();
     const env={DISCORD_PUBLIC_KEY:s.publicKey,DISCORD_APPLICATION_ID:'app',GUILD_ID:'guild',TIME_ZONE:'America/New_York',DB:{prepare:()=>({bind:()=>({first})})}} as unknown as Env;
     let pending:Promise<unknown>|undefined;
@@ -62,9 +64,9 @@ describe('non-destructive guess completion',()=>{
     expect(await response.json()).toEqual({type:6});
     await pending;
     expect(first).toHaveBeenCalledTimes(3);
-    expect(requests).toContainEqual({url:'https://discord.com/api/v10/webhooks/app/test-token/messages/@original',method:'DELETE'});
-    expect(requests.filter(r=>r.method==='DELETE')).toHaveLength(1);
-    expect(requests.some(r=>r.method==='PATCH')).toBe(false);
+    expect(requests).toContainEqual({url:'https://discord.com/api/v10/webhooks/app/test-token/messages/@original',method:correct?'PATCH':'DELETE'});
+    expect(requests.filter(r=>r.method==='DELETE')).toHaveLength(correct?0:1);
+    expect(privateBodies.some(body=>body.includes('View the original message'))).toBe(!!correct);
     expect(storage.publishResults).toHaveBeenCalledOnce();
   });
 });
@@ -84,3 +86,11 @@ describe('non-destructive guess completion',()=>{
    }
    expect(fetcher.mock.calls.every(([,init])=>init?.method==='GET')).toBe(true);
  });
+
+it('routes only the testing channel to its separate database',()=>{
+ const live={} as D1Database,test={} as D1Database;
+ const env={DB:live,TEST_DB:test,GAME_CHANNEL_ID:'live',TEST_CHANNEL_ID:'test'} as Env;
+ expect(interactionEnv(env,{channel_id:'test'} as any)).toMatchObject({DB:test,GAME_CHANNEL_ID:'test'});
+ expect(interactionEnv(env,{channel_id:'live'} as any)).toBe(env);
+ expect(interactionEnv(env,{channel_id:'other'} as any)).toBe(env);
+});

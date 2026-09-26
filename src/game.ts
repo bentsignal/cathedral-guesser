@@ -19,6 +19,16 @@ export function displayQuote(content: string): string {
 export function roundTitle(round: Pick<Round,'day'|'practice'>): string {
   return `Cathedral Guesser · ${round.day}${round.practice?' · Practice':''}`;
 }
+export function originalMessageUrl(round:Round,guild:string,source:string):string {
+  return `https://discord.com/channels/${guild}/${source}/${round.source_id}`;
+}
+function stamp(value?:string):string {
+  const ms=value?Date.parse(value):NaN;
+  return Number.isFinite(ms)?`<t:${Math.floor(ms/1000)}:f>`:'';
+}
+function sourceStamp(id:string):string {
+  return /^\d{17,20}$/.test(id)?stamp(new Date(Number((BigInt(id)>>22n)+1420070400000n)).toISOString()):'';
+}
 export function roundPayload(round: Round, revealed = false, _total = 0, _correct = 0, guildId = '', sourceChannel = '') {
   const media=parseMedia(round.media_json);
   const quote=displayQuote(round.content);
@@ -26,21 +36,23 @@ export function roundPayload(round: Round, revealed = false, _total = 0, _correc
   const images=(media.attachments||[]).filter(a=>a.content_type?.startsWith('image/')).map(a=>({image:{url:a.url}}));
   const long=quote.length>900;
   const header=`**${round.day}**${round.practice?' · Practice':''}`;
-  type ContextEntry=string|{text:string;name:string;urls?:string[];media?:{attachments?:unknown[]}};
+  type ContextEntry=string|{text:string;name:string;timestamp?:string;urls?:string[];media?:{attachments?:unknown[]}};
   let context:{before?:ContextEntry;after?:ContextEntry}={};try{context=JSON.parse(round.context_json||'{}');}catch{}
   const contextLine=(entry?:ContextEntry)=>{
     if(!entry)return '';
     const text=typeof entry==='string'?entry:`${entry.name}: ${[entry.text,entry.urls?.length?'[link]':'',entry.media?.attachments?.length?'[Attachment]':''].filter(Boolean).join(' ')}`;
-    return displayQuote(text).split('\n').map(line=>`> ${line}`).join('\n');
+    const time=typeof entry==='string'?'':stamp(entry.timestamp);
+    return [time,displayQuote(text)].filter(Boolean).join(' · ').split('\n').map(line=>`> ${line}`).join('\n');
   };
   const attachment=(media.attachments||[]).length>0;
-  const target=long?'':`➡ **???: ${quote}${quote&&attachment?'\n':''}${attachment?'See attachment below.':''}**`;
+  const targetTime=sourceStamp(round.source_id);
+  const target=long?'':`➡ **???: ${quote}${quote&&attachment?'\n':''}${attachment?'See attachment below.':''}**${targetTime?` · ${targetTime}`:''}`;
   const content=[header,long?'':contextLine(context.before),target,long?'':contextLine(context.after),...videoLinks,long?links(round.content).join('\n'):'',
     revealed?`**Sent by** <@${round.author_id}> · [Original message](https://discord.com/channels/${guildId}/${sourceChannel}/${round.source_id})`:'**Who sent it?**'].filter(Boolean).join('\n\n');
   return {
     content,
     allowed_mentions: { parse: [] },
-    embeds:[...(long?[{description:[contextLine(context.before).slice(0,160),`➡ **???: ${quote}${attachment?'\nSee attachment below.':''}**`,contextLine(context.after).slice(0,160)].filter(Boolean).join('\n\n')}]:[]),...images],
+    embeds:[...(long?[{description:[contextLine(context.before).slice(0,160),`➡ **???: ${quote}${attachment?'\nSee attachment below.':''}**${targetTime?` · ${targetTime}`:''}`,contextLine(context.after).slice(0,160)].filter(Boolean).join('\n\n')}]:[]),...images],
     components: revealed ? [] : [{ type: 1, components: [{type: 2, style: 1, label: 'Guess', custom_id: `play:${round.id}`}]}],
   };
 }
@@ -67,6 +79,6 @@ export function recapPages(_day: string, players: {user_id:string;correct:number
   }
   if(page)pages.push(page);return pages;
 }
-export function recapPayload(round: Round, content: string, page: number) {
-  return {allowed_mentions:{parse:[]},embeds:[{title:`${roundTitle(round)} · Recap${page?' (continued)':''}`,color:0xbda477,description:content}]};
+export function recapPayload(round: Round, content: string, page: number,guild='',source='') {
+  return {allowed_mentions:{parse:[]},embeds:[{title:`${roundTitle(round)} · Recap${page?' (continued)':''}`,color:0xbda477,description:content,...(guild&&source?{url:originalMessageUrl(round,guild,source)}:{})}],...(guild&&source?{components:[{type:1,components:[{type:2,style:5,label:'Original message',url:originalMessageUrl(round,guild,source)}]}]}:{})};
 }
