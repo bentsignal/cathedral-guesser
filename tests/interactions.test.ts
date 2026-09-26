@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import worker, { INSERT_GUESS } from '../src/index';
-import { verifySignature } from '../src/discord';
+import { discord, verifySignature } from '../src/discord';
 import { gameDay } from '../src/game';
 import type { Env } from '../src/types';
 
@@ -72,8 +72,8 @@ describe('Discord endpoint security',()=>{
   });
 });
 
-describe('private guess dismissal',()=>{
-  it('deletes the private selector after saving, with no duplicate result reply',async()=>{
+describe('non-destructive guess completion',()=>{
+  it('replaces the selector without deleting any message',async()=>{
     const storage=await import('../src/storage');
     vi.spyOn(storage,'publishResults').mockResolvedValue();
     const requests:{url:string;method:string}[]=[];
@@ -92,8 +92,15 @@ describe('private guess dismissal',()=>{
     expect(await response.json()).toEqual({type:6});
     await pending;
     expect(first).toHaveBeenCalledOnce();
-    expect(requests).toContainEqual({url:'https://discord.com/api/v10/webhooks/app/test-token/messages/@original',method:'DELETE'});
-    expect(requests.some(r=>r.method==='PATCH')).toBe(false);
+    expect(requests).toContainEqual({url:'https://discord.com/api/v10/webhooks/app/test-token/messages/@original',method:'PATCH'});
+    expect(requests.some(r=>r.method==='DELETE')).toBe(false);
     expect(storage.publishResults).toHaveBeenCalledOnce();
   });
 });
+
+ it('blocks Discord deletion before sending a request',async()=>{
+   const fetcher=vi.spyOn(globalThis,'fetch');
+   await expect(discord({} as Env,'/channels/1/messages/2','DELETE')).rejects.toThrow('prohibited');
+   await expect(discord({} as Env,'/channels/1/messages/bulk-delete','POST',{messages:['1','2']})).rejects.toThrow('prohibited');
+   expect(fetcher).not.toHaveBeenCalled();
+ });

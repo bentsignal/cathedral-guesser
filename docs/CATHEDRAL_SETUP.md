@@ -1,6 +1,8 @@
-# Set up The Cathedral yourself
+# The Cathedral setup
 
-This moves the existing bot deployment from Shawn's Server to The Cathedral. It does not support both servers simultaneously. No server or channel is deleted. The old test database is retained, and The Cathedral starts with a fresh database.
+Current status: deployment and command registration are configured for The Cathedral, reading `everything` (156935745314095105) and posting only in private test channel 1553417537457496154. Automatic posting is disabled. Public channel 1387873171813957673 is reserved for later explicit authorization. The user authorizes API/CLI setup but prohibits computer-use UI automation and all server deletions.
+
+The instructions below document the setup process. This moves the existing bot deployment from Shawn's Server to The Cathedral. It does not support both servers simultaneously. No server or channel is deleted. The old test database is retained, and The Cathedral starts with a fresh database.
 
 ## 1. Install the bot
 

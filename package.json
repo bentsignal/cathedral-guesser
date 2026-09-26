@@ -8,7 +8,7 @@
     "typecheck": "tsc",
     "test": "vitest run",
     "check": "npm run typecheck && npm test",
-    "db:migrate": "wrangler d1 migrations apply cathedral-guesser --remote",
+    "db:migrate": "wrangler d1 migrations apply cathedral-guesser-cathedral-test --remote",
     "commands": "node scripts/register-commands.mjs"
   },
   "keywords": [],

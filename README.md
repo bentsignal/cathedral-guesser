@@ -9,7 +9,7 @@ A Discord-native daily guessing game on **Cloudflare Workers + D1**. No always-o
 Every day at **midnight America/New_York** (including daylight saving changes), the bot posts a random historical message, image, video, or link. Click **Guess** to open your private member selector. Selecting a name submits your one and only answer.
 
 - Each current human server member can guess once per puzzle.
-- The private selector disappears after answering. Everyone else can still play.
+- The private selector is replaced by “Guess submitted.” after answering; the bot never deletes the message. Everyone else can still play.
 - The bot posts a public right/wrong result without revealing the guessed name or author.
 - The nightly recap lists **everyone who played**, with all correct players first and all incorrect players afterward. Long recaps are paginated.
 - At the next reset, yesterday’s original post reveals the author, a link to the source message.
@@ -60,7 +60,7 @@ npx wrangler login
 npx wrangler d1 create cathedral-guesser
 ```
 
-Update `wrangler.jsonc` with your new database ID, guild/source/game channel IDs, Discord application ID and public key. These IDs and the verification public key are not credentials. The current checked-in configuration targets only the private testing server.
+Update `wrangler.jsonc` with your new database ID, guild/source/game channel IDs, Discord application ID and public key. These IDs and the verification public key are not credentials. The current checked-in configuration targets The Cathedral’s private admin test channel, with scheduled posting disabled.
 
 1. In the Discord developer portal, enable **Message Content Intent**. Presence and Server Members intents are unnecessary.
 2. Install the bot with the `bot` and `applications.commands` scopes. Required permissions: **View Channels**, **Read Message History**, **Send Messages**, **Embed Links** (integer `84992`). Restrict channel access to the intended source and game channels if desired.
@@ -94,7 +94,7 @@ The production setup should restrict the bot to the everything channel and a ded
 - `/health` is a minimal HTTP liveness endpoint; it does not expose archive contents, answers, tokens, or database access.
 - `/guesser-admin status` reports the last successful scheduled/manual maintenance run.
 - Use `npx wrangler tail` (requires tail permission) or the Cloudflare dashboard for runtime diagnostics.
-- Cron is set to `*/5 * * * *`. Clear that array and deploy to pause automatic posting/import.
+- The normal schedule is `*/5 * * * *`; the current deployment has an empty Cron array for manual-only testing.
 - Rate-limited or indexing searches pause and retry automatically. Failed result posts remain queued.
 - Search requests are bounded per run. No paid plan is enabled; free-tier usage is shared with other applications on the account.
 - No paid plan or always-running Railway service is required by this architecture.
@@ -111,4 +111,6 @@ Tests exercise real SQLite constraints, signature validation, date boundaries, h
 
 ## Current testing deployment
 
-The bot is installed in the private testing server, with a live daily puzzle in the dedicated game channel. See [verification notes](docs/VERIFICATION.md) for what was tested. Use `/guesser-admin practice` followed by `/guesser-admin finish-practice` to test the full loop without changing daily standings. Because it uses HTTP interactions without a Gateway connection, the bot may appear offline in Discord even while its buttons and commands work.
+The bot is configured for The Cathedral, sourcing `everything` and posting only in the private admin test channel. Automatic daily posting is disabled during this test. The former Shawn’s Server database is retained separately. See [verification notes](docs/VERIFICATION.md) for what was tested. Use `/guesser-admin practice` followed by `/guesser-admin finish-practice` to test the full loop without changing daily standings. Because it uses HTTP interactions without a Gateway connection, the bot may appear offline in Discord even while its buttons and commands work.
+
+The Cathedral policy: no computer-use UI automation in the server, no message/channel deletion, and no public game-channel posting until separately authorized. The Discord API helper blocks DELETE and bulk-delete requests. Command registration upserts commands without bulk deletion.

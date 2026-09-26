@@ -103,8 +103,8 @@ async function handle(env: Env, i: Interaction) {
       else body=reply('That control is no longer supported. Try `/guesser play`.');
     }
     if(body===null) {
-      // Remove the private selector entirely after a saved guess.
-      await discord(env,`/webhooks/${env.DISCORD_APPLICATION_ID}/${i.token}/messages/@original`,'DELETE');
+      // Preserve the private message: this deployment must never delete messages.
+      await editReply(env,i,reply('Guess submitted.'));
     } else await editReply(env,i,body);
     if (i.data?.custom_id?.startsWith('guess:')) {
       try { await publishResults(env); }

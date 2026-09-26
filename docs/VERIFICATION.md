@@ -37,3 +37,12 @@ The midnight transition is covered by date-boundary/DST tests and the same revea
 - Verified a live `/guesser-admin practice` with no source argument after dropping the archive: a random X-link puzzle posted successfully with its native preview.
 - All 40 tests passed, including old/recent period selection, dense-period subdivision, request caps, cooldown persistence, former-member rejection, and daily repeat avoidance.
 - Production-scale history has not yet been tested because the bot still targets the private test server.
+
+## September 26: Cathedral private deployment
+
+- User authorized API/CLI setup in The Cathedral, explicitly excluding computer-use navigation and all server deletion. Recorded this in AGENTS.md.
+- Validated supplied server/source/private-output/future-output IDs through read-only API calls. Source and server sharing an ID is valid; the source is `everything`.
+- Provisioned a separate D1 database for Cathedral private testing; retained the previous server's database. Deployed with an empty Cron schedule.
+- Removed private-reply deletion. The selector becomes “Guess submitted.”; Discord DELETE and bulk-delete calls are blocked before any network request. Commands are upserted individually rather than bulk replaced.
+- Posted and fetched one real randomly sampled practice puzzle in the private test channel. Confirmed the Guess button, application identity, and channel. Verified command registration and admin permissions, plus Worker health. No posts were sent to the future public channel.
+- All 41 automated tests passed. User interaction testing in The Cathedral remains for the user; no server UI automation was performed.

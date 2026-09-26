@@ -3,6 +3,7 @@ export class DiscordError extends Error {
   constructor(public status: number, public retryAfter = 0) { super(`Discord API returned ${status}`); }
 }
 export async function discord<T>(env: Env, path: string, method = 'GET', body?: unknown): Promise<T> {
+  if(method.toUpperCase()==='DELETE' || path.split('?')[0].endsWith('/bulk-delete')) throw new Error('Discord deletion is prohibited');
   const response = await fetch(`https://discord.com/api/v10${path}`, {
     method,
     headers: { Authorization: `Bot ${env.DISCORD_TOKEN}`, 'Content-Type': 'application/json' },

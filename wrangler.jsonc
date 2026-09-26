@@ -4,14 +4,22 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-09-25",
   "account_id": "12f3bac77e8f2b140391cd4f79c766ad",
-  "triggers": { "crons": ["*/5 * * * *"] },
+  "triggers": {
+    "crons": []
+  },
   "vars": {
-    "GUILD_ID": "1048351355498135582",
-    "SOURCE_CHANNEL_ID": "1553232384667816056",
-    "GAME_CHANNEL_ID": "1553234288668049489",
+    "GUILD_ID": "156935745314095105",
+    "SOURCE_CHANNEL_ID": "156935745314095105",
+    "GAME_CHANNEL_ID": "1553417537457496154",
     "TIME_ZONE": "America/New_York",
     "DISCORD_APPLICATION_ID": "1553236610722832406",
     "DISCORD_PUBLIC_KEY": "a597649d82356d7e8a523416a77b0782b1f7df1432cd3ba7e6b76dd07fd3cb1c"
   },
-  "d1_databases": [{"binding":"DB","database_name":"cathedral-guesser","database_id":"8c9fd878-5326-47d3-b58e-c51d33347a28"}]
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cathedral-guesser-cathedral-test",
+      "database_id": "a674e56f-0492-4ae3-a63c-cbcc2e1a8429"
+    }
+  ]
 }
