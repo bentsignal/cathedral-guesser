@@ -104,3 +104,7 @@ npx wrangler deploy --dry-run
 ```
 
 Tests exercise real SQLite constraints, signature validation, date boundaries, archive cursors, rate-limit recovery, answer reveal, and durable result delivery. External Discord responses are mocked; live Discord testing is also needed after installation.
+
+## Current testing deployment
+
+The bot is installed in the private testing server, with a live daily puzzle in the dedicated game channel. See [verification notes](docs/VERIFICATION.md) for what was tested. Use `/guesser practice` followed by `/guesser finish-practice` to test the full loop without changing daily standings. Because it uses HTTP interactions without a Gateway connection, the bot may appear offline in Discord even while its buttons and commands work.

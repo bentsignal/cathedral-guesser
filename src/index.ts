@@ -98,7 +98,10 @@ async function handle(env: Env, i: Interaction) {
       else body=reply('That control is no longer supported. Try `/guesser play`.');
     }
     await editReply(env,i,body);
-    if (i.data?.custom_id?.startsWith('guess:')) await publishResults(env);
+    if (i.data?.custom_id?.startsWith('guess:')) {
+      try { await publishResults(env); }
+      catch { console.error('Public result delivery deferred to scheduled retry'); }
+    }
   } catch (error) {
     console.error('Interaction failed',error instanceof Error ? error.name : 'UnknownError');
     // Do not claim a failed request necessarily means no guess was recorded.
