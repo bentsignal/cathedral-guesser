@@ -8,7 +8,7 @@ afterEach(()=>vi.unstubAllGlobals());
 describe('clean Discord output',()=>{
   it('shows clickable links in message content, where Discord can unfurl them',()=>{
     const payload=roundPayload(round);
-    expect(payload.content).toBe('**2026-09-26**\n\nhttps://www.youtube.com/watch?v=abc_def\n\n**Who sent it?**');
+    expect(payload.content).toBe('**2026-09-26**\n\n➡ **https://www.youtube.com/watch?v=abc_def**\n\n**Who sent it?**');
     expect(payload.embeds).toEqual([]);
   });
   it('renders image-only and video-only messages without exposing the sender',()=>{
@@ -17,6 +17,8 @@ describe('clean Discord output',()=>{
     const payload=roundPayload({...round,content:'',media_json:JSON.stringify({attachments:[image,{...image,url:'https://cdn.discordapp.com/attachments/1/2/a.mp4',content_type:'video/mp4'}]})});
     expect(payload.embeds[0]).toEqual({image:{url:image.url}});
     expect(payload.content).toContain('a.mp4');
+    expect(payload.content).toContain('➡ **See attachment below.**');
+    expect(JSON.stringify(payload)).not.toContain('Guess this image');
     expect(payload.content).not.toContain('author');
   });
   it('keeps result and recap text minimal with no visible tracking IDs',()=>{

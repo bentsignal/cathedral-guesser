@@ -4,6 +4,7 @@ import { eligibleMessage, gameDay, roundPayload, recapPages, resultPayload, reca
 
 import { parseMedia, validateMedia } from './media';
 import {finalizeUnfinished} from './attempts';
+import {eligibleAuthors} from './eligibility';
 import { sampleCandidates } from './sampling';
 
 export async function state(env: Env, key: string): Promise<string | null> {
@@ -37,12 +38,15 @@ export async function createRound(env: Env, id?: string, sourceId?: string): Pro
   const roundId = id || day;
   const existing = await env.DB.prepare('SELECT * FROM rounds WHERE id=?').bind(roundId).first<Round>();
   if (existing) return existing;
+  const pool=await eligibleAuthors(env);
+  if(!pool.ready || !pool.members.length)return null;
+  const authors=pool.members.map(m=>m.user.id);
   const candidates=sourceId && id
     ? [await discord<Message>(env,`/channels/${env.SOURCE_CHANNEL_ID}/messages/${sourceId}`)]
     : await sampleCandidates(env);
   let checked=0;
   for (const candidate of candidates) {
-    if(!eligibleMessage(candidate))continue;
+    if(!eligibleMessage(candidate) || !authors.includes(candidate.author.id))continue;
     if(!id && await env.DB.prepare('SELECT id FROM rounds WHERE source_id=? AND practice=0 AND day>=? LIMIT 1').bind(candidate.id,new Date(Date.now()-365*86400000).toISOString().slice(0,10)).first())continue;
     if(++checked>3)break;
     if (!(await currentMember(env,candidate.author.id))) continue;
@@ -66,8 +70,8 @@ export async function createRound(env: Env, id?: string, sourceId?: string): Pro
     const preview={id:roundId,day,practice:id?1:0,source_id:live.id,author_id:live.author.id,content:live.content,media_json:JSON.stringify(media),context_json:context,guess_limit:3,status:'pending',discord_id:null,revealed:0};
     const safeContext=roundPayload(preview).content.length<=2000?context:'{}';
     await env.DB.batch([
-      env.DB.prepare('INSERT OR IGNORE INTO rounds(id,day,practice,source_id,author_id,content,media_json,context_json,guess_limit) VALUES (?,?,?,?,?,?,?,?,3)')
-        .bind(roundId,day,id?1:0,live.id,live.author.id,live.content,JSON.stringify(media),safeContext),
+      env.DB.prepare('INSERT OR IGNORE INTO rounds(id,day,practice,source_id,author_id,content,media_json,context_json,guess_limit,eligible_authors_json) VALUES (?,?,?,?,?,?,?,?,3,?)')
+        .bind(roundId,day,id?1:0,live.id,live.author.id,live.content,JSON.stringify(media),safeContext,JSON.stringify(authors)),
     ]);
     return env.DB.prepare('SELECT * FROM rounds WHERE id=?').bind(roundId).first<Round>();
   }

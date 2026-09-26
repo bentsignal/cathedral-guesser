@@ -7,7 +7,7 @@ import { gameDay } from '../src/game';
 import type { Env } from '../src/types';
 
 let db: DatabaseSync;
-beforeEach(()=>{db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../migrations/0001_initial.sql',import.meta.url),'utf8'));db.exec(readFileSync(new URL('../migrations/0002_recaps.sql',import.meta.url),'utf8'));db.exec(readFileSync(new URL('../migrations/0003_media.sql',import.meta.url),'utf8'));db.exec(readFileSync(new URL('../migrations/0005_three_guesses.sql',import.meta.url),'utf8'));});
+beforeEach(()=>{db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../migrations/0001_initial.sql',import.meta.url),'utf8'));db.exec(readFileSync(new URL('../migrations/0002_recaps.sql',import.meta.url),'utf8'));db.exec(readFileSync(new URL('../migrations/0003_media.sql',import.meta.url),'utf8'));db.exec(readFileSync(new URL('../migrations/0005_three_guesses.sql',import.meta.url),'utf8'));db.exec(readFileSync(new URL('../migrations/0006_regular_authors.sql',import.meta.url),'utf8'));});
 afterEach(()=>{db.close();vi.restoreAllMocks();});
 async function signing() {
   const keys=await crypto.subtle.generateKey({name:'Ed25519'},true,['sign','verify']);
@@ -61,7 +61,7 @@ describe('non-destructive guess completion',()=>{
     const response=await worker.fetch(await s.request(JSON.stringify(interaction)),env,ctx);
     expect(await response.json()).toEqual({type:6});
     await pending;
-    expect(first).toHaveBeenCalledTimes(2);
+    expect(first).toHaveBeenCalledTimes(3);
     expect(requests).toContainEqual({url:'https://discord.com/api/v10/webhooks/app/test-token/messages/@original',method:'PATCH'});
     expect(requests.some(r=>r.method==='DELETE')).toBe(false);
     expect(storage.publishResults).toHaveBeenCalledOnce();

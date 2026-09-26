@@ -23,21 +23,19 @@ export function roundPayload(round: Round, revealed = false, _total = 0, _correc
   const media=parseMedia(round.media_json);
   const quote=displayQuote(round.content);
   const videoLinks=(media.attachments||[]).filter(a=>a.content_type?.startsWith('video/')).map(a=>a.url);
-  const images=(media.attachments||[]).filter(a=>a.content_type?.startsWith('image/')).map(a=>({...(round.context_json&&round.context_json!=='{}'?{title:'➡ Guess this image'}:{}),image:{url:a.url}}));
+  const images=(media.attachments||[]).filter(a=>a.content_type?.startsWith('image/')).map(a=>({image:{url:a.url}}));
   const long=quote.length>900;
   const header=`**${round.day}**${round.practice?' · Practice':''}`;
-  const body=long?links(round.content).join('\n'):quote;
-  // Quote plain text visually; leave links unwrapped for Discord's native previews.
-  const excerpt=body && !links(round.content).length && !long?body.split('\n').map(line=>`> ${line}`).join('\n'):body;
   let context:{before?:string;after?:string}={};try{context=JSON.parse(round.context_json||'{}');}catch{}
-  const contextLine=(label:string,text?:string)=>text?`-# ${label}\n${displayQuote(text).split('\n').map(line=>`> ${line}`).join('\n')}`:'';
-  const hasContext=!!(context.before||context.after);
-  const content=[header,contextLine('Before',context.before),hasContext?'**➡ Guess this message**':'',excerpt,...videoLinks,contextLine('After',context.after),
+  const contextLine=(text?:string)=>text?displayQuote(text).split('\n').map(line=>`> ${line}`).join('\n'):'';
+  const attachment=(media.attachments||[]).length>0;
+  const target=long?'':`➡ **${quote}${quote&&attachment?'\n':''}${attachment?'See attachment below.':''}**`;
+  const content=[header,long?'':contextLine(context.before),target,long?'':contextLine(context.after),...videoLinks,long?links(round.content).join('\n'):'',
     revealed?`**Sent by** <@${round.author_id}> · [Original message](https://discord.com/channels/${guildId}/${sourceChannel}/${round.source_id})`:'**Who sent it?**'].filter(Boolean).join('\n\n');
   return {
     content,
     allowed_mentions: { parse: [] },
-    embeds:[...(long?[{title:'➡ Guess this message',description:quote}]:[]),...images],
+    embeds:[...(long?[{description:[contextLine(context.before).slice(0,160),`➡ **${quote}${attachment?'\nSee attachment below.':''}**`,contextLine(context.after).slice(0,160)].filter(Boolean).join('\n\n')}]:[]),...images],
     components: revealed ? [] : [{ type: 1, components: [{type: 2, style: 1, label: 'Guess', custom_id: `play:${round.id}`}]}],
   };
 }

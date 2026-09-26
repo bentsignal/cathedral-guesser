@@ -16,12 +16,16 @@ async function showSelector(env: Env, i: Interaction, roundId: string,page=0,not
   if (existing) return reply('Your result is in.');
   const attempts=await env.DB.prepare('SELECT guessed_id FROM attempts WHERE round_id=? AND user_id=? ORDER BY attempt').bind(roundId,i.member!.user.id).all<{guessed_id:string}>();
   const used=attempts.results.length,limit=round.guess_limit||1;
-  const controls=memberControls(await roster(env),round.id,used,attempts.results.map(a=>a.guessed_id),page);
+  const allMembers=await roster(env);
+  const eligible:string[]|null=round.eligible_authors_json?JSON.parse(round.eligible_authors_json):null;
+  const controls=memberControls(eligible?allMembers.filter(m=>eligible.includes(m.user.id)):allMembers,round.id,used,attempts.results.map(a=>a.guessed_id),page);
   return reply([notice,used?`${resultSquares(0,used,limit)} · ${limit-used} ${limit-used===1?'guess':'guesses'} left`:'','**Who sent it?**'].filter(Boolean).join('\n\n'),controls);
 }
 async function submitGuess(env: Env, i: Interaction, roundId: string,expected=0) {
   const guessed = i.data?.values?.[0];
   if (!guessed || !/^\d{17,20}$/.test(guessed) || i.data?.values?.length!==1 || !Number.isInteger(expected) || expected<0 || expected>2) return reply('Choose one server member.');
+  const round=await env.DB.prepare('SELECT * FROM rounds WHERE id=?').bind(roundId).first<Round>();
+  if(round?.eligible_authors_json && !(JSON.parse(round.eligible_authors_json) as string[]).includes(guessed))return showSelector(env,i,roundId,0,'Choose someone from this puzzle’s list.');
   if (!(await currentMember(env,guessed))) return showSelector(env,i,roundId,0,'That person is no longer in the server. Your guess was not used.');
   const userId = i.member!.user.id;
   const saved = await env.DB.prepare(INSERT_ATTEMPT)

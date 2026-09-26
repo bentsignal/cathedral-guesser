@@ -20,7 +20,7 @@ export interface Message {
 }
 export interface Round {
   id: string; day: string; practice: number; source_id: string; author_id: string;
-  content: string; media_json?: string; context_json?: string; guess_limit?: number; status: string; discord_id: string | null; revealed: number;
+  content: string; media_json?: string; context_json?: string; eligible_authors_json?: string | null; guess_limit?: number; status: string; discord_id: string | null; revealed: number;
 }
 export interface Guess {
   round_id: string; user_id: string; guessed_id: string; correct: number;

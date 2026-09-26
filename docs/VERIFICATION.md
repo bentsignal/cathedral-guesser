@@ -54,3 +54,11 @@ The midnight transition is covered by date-boundary/DST tests and the same revea
 - Added atomic attempt records with unique interaction/person constraints, expected-attempt validation, and a trigger producing one final outcome only at success/exhaustion. Closing a round finalizes unfinished participants. Public results and recaps include attempt squares; daily stats count final outcomes, not individual attempts.
 - All 45 tests passed, including stale/double submissions, duplicate names, third-miss finalization, early success, close/expiry, old-round compatibility, 76-member coverage, command filtering, context placement, and no-deletion enforcement.
 - Created a fresh practice round using real Cathedral history and verified its posted message through the API: before and after context, target arrow, and Guess button are present. Interactive visual testing is left to the user because server UI automation is prohibited. No existing messages were deleted; public posting and scheduled daily rounds remain disabled.
+
+## September 26: regular authors and simpler clues
+
+- Removed before/after labels and the separate target heading. The target is now arrow + bold message, with “See attachment below.” for attachments.
+- Added cached source-channel counts for current human members. New puzzles require more than 100 messages; their saved eligible-author IDs govern both target selection and dropdown choices. Bots and former members are excluded. Legacy rounds preserve their existing choices.
+- Completed the initial count check through bounded Discord searches with persisted cooldowns: 28 members qualify. Only IDs/counts are cached, without copying the channel history.
+- Applied additive migration 0006 and deployed the Worker. Posted a fresh practice puzzle only in the private Cathedral test channel; API verification confirmed bold target, no old labels, Guess button, three attempts, and all 28 eligible choices across two dropdowns, including the answer.
+- Typecheck and all 51 tests passed, including strict threshold boundaries, cache reuse, bounded refresh, cooldown recovery, former-member exclusion, and matching target/choice pools. Visual interaction testing is left to the user. No messages were deleted; scheduled and public posting remain disabled.

@@ -9,11 +9,11 @@ A Discord-native daily guessing game on **Cloudflare Workers + D1**. No always-o
 Every day at **midnight America/New_York** (including daylight saving changes), the bot posts a random historical message, image, video, or link. Click **Guess** to open your private member selector. Selecting a name uses one attempt.
 
 - Each player gets up to three guesses; a correct answer ends their round.
-- The picker lists all current human members alphabetically in groups of 25 (up to 100 per page). Incorrect guesses show private progress and remove the chosen name. After finishing, the private selector becomes “Guess submitted.”; no message is deleted.
+- The picker lists only current human members with more than 100 messages in the source channel, alphabetically in groups of 25 (up to 100 per page). Incorrect guesses show private progress and remove the chosen name. After finishing, the private selector becomes “Guess submitted.”; no message is deleted.
 - A public result appears only after a correct answer or the third miss, e.g. `🟥🟩⬜ 2/3`. Guessed names stay private.
 - The nightly recap lists **everyone who played**, with all correct players first and all incorrect players afterward. Long recaps are paginated.
 - At the next reset, yesterday’s original post reveals the author, a link to the source message.
-- Each new puzzle includes short anonymous excerpts of the immediately preceding and following messages, with an arrow marking the target. Context links are shown as `[link]`, and attachments as `[Attachment]`. Command-like targets (slash commands and common bot prefixes) are excluded.
+- Each new puzzle includes short anonymous excerpts of the immediately preceding and following messages, without before/after labels. An arrow and bold text mark the target; attachments use “See attachment below.” Context links are shown as `[link]`, and attachments as `[Attachment]`. Command-like targets (slash commands and common bot prefixes) are excluded.
 - Quotes redact user/role and channel mentions; they never ping anyone. Links remain clickable.
 - `/guesser-admin practice` creates an independent practice round. Practice never affects daily standings.
 
@@ -36,7 +36,7 @@ Administrative commands live under `/guesser-admin` and are hidden by default fr
 
 Discord delivers signed HTTP interactions to `/interactions`. The Worker verifies Ed25519 signatures and rejects stale or mismatched requests, immediately acknowledges accepted interactions, then completes private responses asynchronously.
 
-D1 holds selected puzzles, guesses, a cached history start date, search cooldowns, and short-lived maintenance locks. It does not keep a copy of the source channel. Atomic attempt inserts validate the expected attempt count, reject repeat names and stale controls, and stop after a correct answer or three misses. A database trigger creates exactly one final result; incomplete players are recorded as incorrect at close. Buttons never encode the author. Saved guesses are authoritative even if Discord temporarily fails to deliver the confirmation.
+D1 holds selected puzzles, guesses, cached per-author message counts, a cached history start date, search cooldowns, and short-lived maintenance locks. It does not keep a copy of the source channel. Atomic attempt inserts validate the expected attempt count, reject repeat names and stale controls, and stop after a correct answer or three misses. A database trigger creates exactly one final result; incomplete players are recorded as incorrect at close. Buttons never encode the author. Saved guesses are authoritative even if Discord temporarily fails to deliver the confirmation.
 
 A five-minute Cron Trigger retries unpublished results, closes old rounds, and posts the current daily puzzle if needed. Once the daily puzzle exists, it does not search for another one. The midnight tick starts the new day; scheduling/network delays can postpone posting by a few minutes, but submissions against yesterday are rejected immediately at the date boundary.
 
@@ -44,7 +44,7 @@ The bot uses Discord's search API, scoped to the source channel. It discovers th
 
 There is no bulk import or channel replica. Search responses stay in memory; only the chosen puzzle is saved. Discord rate-limit and indexing responses persist a cooldown so later invocations also wait. New messages are available through Discord search without a separate import. Source and game channels remain independently configured.
 
-Eligible messages are ordinary messages and replies by humans, containing text or image/video attachments, with safely rendered text of at most 3,500 characters. Authors must still be members when selected. The original message is fetched again to check edits, deletion, and current attachment URLs. Daily messages used in the past year are skipped; practice does not consume that history. Each attempt validates at most three candidates. The bot does not enumerate unrelated channels or threads.
+Eligible messages are ordinary messages and replies by humans, containing text or image/video attachments, with safely rendered text of at most 3,500 characters. Authors must still be human members and have more than 100 messages in the source channel when selected. The same eligible-author IDs are saved with the round and used for its dropdown. Discord search supplies the counts without downloading channel history; qualifying counts are cached for seven days, other counts for one day. Refreshes check at most six members per invocation and honor search cooldowns. A new source needs its initial count check completed before its first puzzle; legacy rounds retain their original choices. The original message is fetched again to check edits, deletion, and current attachment URLs. Daily messages used in the past year are skipped; practice does not consume that history. Each attempt validates at most three candidates. The bot does not enumerate unrelated channels or threads.
 
 Before selection, links are checked with bounded timeouts and safe redirects; inaccessible links are skipped for 24 hours. YouTube videos and X posts are verified through their official oEmbed endpoints. Other pages use HTTP availability and Open Graph metadata where available; this cannot detect every soft-error page. Messages support up to three links and four image/video attachments. Fresh attachment URLs are fetched from Discord. Native Discord previews and video players are preferred, with verified metadata as a fallback on a later maintenance tick when no native preview appears. Provider restrictions and Discord client preferences can affect previews.
 
@@ -80,7 +80,7 @@ Update `wrangler.jsonc` with your new database ID, guild/source/game channel IDs
    node --env-file=.dev.vars scripts/register-commands.mjs
    ```
 
-6. Run `/guesser-admin sync` or wait for the next scheduled tick. No history import is required. `/guesser-admin status` shows search readiness.
+6. Run `/guesser-admin sync` or wait for the next scheduled tick. No history import is required. For a new source, repeat sync as needed to finish the bounded initial author-count checks, or let the enabled schedule do so. `/guesser-admin status` shows search readiness.
 
 Never commit `.dev.vars`, `.env` files, credentials, downloaded message archives, or database exports. `.gitignore` excludes local secret files and Wrangler state. GitHub Actions only runs checks and a dry-run build; deployment credentials are not stored in GitHub.
 

@@ -6,7 +6,7 @@ import {memberControls} from '../src/members';
 import {eligibleMessage,roundPayload,resultSquares} from '../src/game';
 import type {Env,Message,Round} from '../src/types';
 let db:DatabaseSync;
-beforeEach(()=>{db=new DatabaseSync(':memory:');for(const name of ['0001_initial','0002_recaps','0003_media','0004_on_demand','0005_three_guesses'])db.exec(readFileSync(new URL(`../migrations/${name}.sql`,import.meta.url),'utf8'));db.exec("INSERT INTO rounds(id,day,source_id,author_id,content,status,guess_limit) VALUES ('round','2026-09-26','source','author','quote','open',3)");});
+beforeEach(()=>{db=new DatabaseSync(':memory:');for(const name of ['0001_initial','0002_recaps','0003_media','0004_on_demand','0005_three_guesses','0006_regular_authors'])db.exec(readFileSync(new URL(`../migrations/${name}.sql`,import.meta.url),'utf8'));db.exec("INSERT INTO rounds(id,day,source_id,author_id,content,status,guess_limit) VALUES ('round','2026-09-26','source','author','quote','open',3)");});
 afterEach(()=>db.close());
 const attempt=(expected:number,guessed:string,interaction='i'+expected,user='player')=>db.prepare(INSERT_ATTEMPT).get(user,guessed,expected,guessed,interaction,'round','2026-09-26',expected,user,expected,user);
 const outcomes=()=>db.prepare('SELECT * FROM guesses').all();
@@ -57,8 +57,9 @@ describe('readable clues and member choices',()=>{
  });
  it('marks the target between anonymous neighboring messages without exposing its author',()=>{
   const round:Round={id:'r',day:'2026',source_id:'source',author_id:'secret',practice:1,status:'open',discord_id:null,revealed:0,content:'target',context_json:JSON.stringify({before:'previous <@123456789012345678>',after:'next'})};
-  const payload=roundPayload(round);expect(payload.content.indexOf('previous')).toBeLessThan(payload.content.indexOf('➡ Guess this message'));
-  expect(payload.content.indexOf('target')).toBeLessThan(payload.content.indexOf('After'));
+  const payload=roundPayload(round);expect(payload.content.indexOf('previous')).toBeLessThan(payload.content.indexOf('➡ **target**'));
+  expect(payload.content.indexOf('target')).toBeLessThan(payload.content.indexOf('next'));
+  expect(payload.content).not.toContain('Before');expect(payload.content).not.toContain('After');expect(payload.content).not.toContain('Guess this message');
   expect(payload.content).not.toContain('secret');expect(payload.content).not.toContain('<@123');
  });
  it('shows attempts and unused slots clearly',()=>{
