@@ -4,7 +4,9 @@ import {search} from './sampling';
 export const AUTHOR_THRESHOLD=100;
 interface Count {user_id:string;message_count:number;checked_at:number}
 export async function eligibleAuthors(env:Env,budget=6):Promise<{members:Member[];ready:boolean;remaining:number}>{
-  const members=await roster(env);
+  const setting=await env.DB.prepare('SELECT value FROM state WHERE key=?').bind(`excluded_authors:${env.SOURCE_CHANNEL_ID}`).first<string>('value');
+  const excluded=new Set<string>(JSON.parse(setting||'[]'));
+  const members=(await roster(env)).filter(m=>!excluded.has(m.user.id));
   const stored=await env.DB.prepare('SELECT user_id,message_count,checked_at FROM author_counts WHERE source_channel_id=?').bind(env.SOURCE_CHANNEL_ID).all<Count>();
   const counts=new Map(stored.results.map(row=>[row.user_id,row]));
   const now=Date.now();

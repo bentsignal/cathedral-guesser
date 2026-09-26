@@ -62,3 +62,9 @@ The midnight transition is covered by date-boundary/DST tests and the same revea
 - Completed the initial count check through bounded Discord searches with persisted cooldowns: 28 members qualify. Only IDs/counts are cached, without copying the channel history.
 - Applied additive migration 0006 and deployed the Worker. Posted a fresh practice puzzle only in the private Cathedral test channel; API verification confirmed bold target, no old labels, Guess button, three attempts, and all 28 eligible choices across two dropdowns, including the answer.
 - Typecheck and all 51 tests passed, including strict threshold boundaries, cache reuse, bounded refresh, cooldown recovery, former-member exclusion, and matching target/choice pools. Visual interaction testing is left to the user. No messages were deleted; scheduled and public posting remain disabled.
+
+## September 26: manually excluded authors
+
+- Added a source-scoped author exclusion setting in D1 state. It applies before count checks and governs both new target selection and the saved choice pool. Account IDs stay in private configuration, outside the public repository.
+- Configured the three requested exclusions and deployed. A fresh private practice puzzle has exactly 25 choices in one dropdown, with its answer included and all excluded accounts absent. Existing rounds and messages were preserved.
+- Typecheck and all 52 tests passed, including exclusion application and source-channel isolation.
