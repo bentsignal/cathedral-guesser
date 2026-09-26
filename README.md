@@ -11,6 +11,7 @@ Every day at **midnight America/New_York** (including daylight saving changes), 
 - Each current human server member can guess once per puzzle.
 - The private selector disappears after answering. Everyone else can still play.
 - The bot posts a public 🟩/🟥 result without revealing the guessed name or author.
+- The nightly recap lists **everyone who played**, with all correct players first and all incorrect players afterward. Long recaps are paginated.
 - At the next reset, yesterday’s original post reveals the author, a link to the source message, and the number of correct players.
 - Quotes redact user/role mentions, channel mentions, and links; they never ping anyone.
 - `/guesser practice` creates an independent practice round. Practice never affects daily standings.
@@ -21,8 +22,8 @@ Every day at **midnight America/New_York** (including daylight saving changes), 
 | --- | --- |
 | `/guesser play` | Open today’s private guessing menu |
 | `/guesser help` | Rules and commands |
-| `/guesser stats` | Your daily record |
-| `/guesser leaderboard` | Top ten daily players |
+| `/guesser stats` | Your daily correct/incorrect totals and accuracy |
+| `/guesser leaderboard` | Top ten by correct answers, with medals for the top three |
 | `/guesser status` | Archive progress and last successful maintenance |
 | `/guesser sync` | Admin: run one maintenance/import batch |
 | `/guesser practice` | Admin: post a practice puzzle |

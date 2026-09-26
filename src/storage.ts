@@ -1,6 +1,6 @@
 import type { Env, Message, Round, Member, Guess } from './types';
 import { discord, DiscordError, noMentions, nonce } from './discord';
-import { eligibleMessage, gameDay, roundPayload } from './game';
+import { eligibleMessage, gameDay, roundPayload, recapPages } from './game';
 
 export async function state(env: Env, key: string): Promise<string | null> {
   return env.DB.prepare('SELECT value FROM state WHERE key = ?').bind(key).first<string>('value');
@@ -118,11 +118,17 @@ export async function revealOldRounds(env: Env) {
         await discord(env,`/channels/${env.GAME_CHANNEL_ID}/messages/${round.discord_id}`,'PATCH',roundPayload(round,true,counts!.total,counts!.correct,env.GUILD_ID,env.SOURCE_CHANNEL_ID));
       } catch (error) { if (!(error instanceof DiscordError && error.status===404)) throw error; }
     }
+    if (!round.practice) {
+      const players=await env.DB.prepare('SELECT user_id,correct FROM guesses WHERE round_id=? ORDER BY correct DESC,created_at,user_id').bind(round.id).all<{user_id:string;correct:number}>();
+      const pages=recapPages(round.day,players.results).map((content,page)=>({content,page}));
+      await env.DB.prepare(`INSERT OR IGNORE INTO recaps(round_id,page,content)
+        SELECT ?,json_extract(value,'$.page'),json_extract(value,'$.content') FROM json_each(?)`).bind(round.id,JSON.stringify(pages)).run();
+    }
     await env.DB.prepare('UPDATE rounds SET revealed=1 WHERE id=?').bind(round.id).run();
   }
 }
 export async function publishResults(env: Env) {
-  const pending = await env.DB.prepare('SELECT * FROM guesses WHERE published_id IS NULL LIMIT 3').all<Guess>();
+  const pending = await env.DB.prepare('SELECT * FROM guesses WHERE published_id IS NULL LIMIT 2').all<Guess>();
   for (const guess of pending.results) {
     await withLease(env,`result:${guess.interaction_id}`,async () => {
       const latest = await env.DB.prepare('SELECT published_id FROM guesses WHERE interaction_id=?').bind(guess.interaction_id).first<Guess>();
@@ -144,9 +150,24 @@ export async function maintenance(env: Env) {
   await withLease(env,'maintenance',async () => {
     await revealOldRounds(env);
     await publishResults(env);
+    await publishRecaps(env);
     await syncHistory(env);
     const round = await createRound(env);
     if (round) await publishRound(env,round);
     await setState(env,'last_success',new Date().toISOString());
   });
+}
+
+export async function publishRecaps(env: Env) {
+  const pending=await env.DB.prepare('SELECT * FROM recaps WHERE published_id IS NULL ORDER BY round_id,page LIMIT 1').all<{round_id:string;page:number;content:string}>();
+  for(const recap of pending.results) {
+    const marker=`Recap ${recap.round_id} / ${recap.page+1}`;
+    const found=await existingPost(env,marker);
+    const message=found?{id:found}:await discord<{id:string}>(env,`/channels/${env.GAME_CHANNEL_ID}/messages`,'POST',{
+      allowed_mentions:noMentions,
+      embeds:[{title:'Cathedral Guesser · Daily recap',color:0xbda477,description:recap.content,footer:{text:marker}}],
+      nonce:await nonce(marker),enforce_nonce:true,
+    });
+    await env.DB.prepare('UPDATE recaps SET published_id=? WHERE round_id=? AND page=?').bind(message.id,recap.round_id,recap.page).run();
+  }
 }

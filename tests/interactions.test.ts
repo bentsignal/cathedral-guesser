@@ -7,7 +7,7 @@ import { gameDay } from '../src/game';
 import type { Env } from '../src/types';
 
 let db: DatabaseSync;
-beforeEach(()=>{db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../migrations/0001_initial.sql',import.meta.url),'utf8'));});
+beforeEach(()=>{db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../migrations/0001_initial.sql',import.meta.url),'utf8'));db.exec(readFileSync(new URL('../migrations/0002_recaps.sql',import.meta.url),'utf8'));});
 afterEach(()=>{db.close();vi.restoreAllMocks();});
 const seed = (id='round',day='2026-09-25',status='open',practice=0) => db.prepare('INSERT INTO rounds(id,day,source_id,author_id,content,status,practice) VALUES (?,?,?,?,?,?,?)').run(id,day,'source','author','a quote',status,practice);
 const guess=(user:string,author:string,interaction:string,day='2026-09-25',round='round')=>db.prepare(INSERT_GUESS).get(user,author,author,interaction,round,day);

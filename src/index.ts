@@ -49,12 +49,12 @@ async function command(env: Env, i: Interaction) {
   if (sub==='stats') {
     const stats = await env.DB.prepare(`SELECT COUNT(*) AS played, COALESCE(SUM(g.correct),0) AS wins FROM guesses g
       JOIN rounds r ON r.id=g.round_id WHERE g.user_id=? AND r.practice=0`).bind(i.member!.user.id).first<{played:number;wins:number}>();
-    return reply(`**Your Cathedral Guesser record**\nPlayed: **${stats!.played}** · Correct: **${stats!.wins}** · Accuracy: **${stats!.played?Math.round(stats!.wins/stats!.played*100):0}%**`);
+    return reply(`**Your Cathedral Guesser record**\nPlayed: **${stats!.played}** · Correct: **${stats!.wins}** · Incorrect: **${stats!.played-stats!.wins}** · Accuracy: **${stats!.played?Math.round(stats!.wins/stats!.played*100):0}%**`);
   }
   if (sub==='leaderboard') {
     const rows = await env.DB.prepare(`SELECT g.user_id,COUNT(*) AS played,SUM(g.correct) AS wins FROM guesses g
       JOIN rounds r ON r.id=g.round_id WHERE r.practice=0 GROUP BY g.user_id ORDER BY wins DESC,played ASC,g.user_id LIMIT 10`).all<{user_id:string;played:number;wins:number}>();
-    return reply('**Cathedral Guesser · Daily standings**\n'+(rows.results.map((r,n)=>`${n+1}. <@${r.user_id}> — **${r.wins}** correct / ${r.played} played`).join('\n')||'No daily guesses yet. Be the first!'));
+    return reply('**Cathedral Guesser · Daily standings**\n'+(rows.results.map((r,n)=>`${['🥇','🥈','🥉'][n] || `${n+1}.`} <@${r.user_id}> — **${r.wins}** correct · ${r.played-r.wins} incorrect`).join('\n')||'No daily guesses yet. Be the first!'));
   }
   if (sub==='status') {
     const count = await env.DB.prepare('SELECT COUNT(*) AS n FROM messages').first<number>('n');

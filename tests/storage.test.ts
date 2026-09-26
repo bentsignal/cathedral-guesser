@@ -17,7 +17,7 @@ function statement(sql: string, args: any[] = []): any {
 }
 const msg=(id:string,content='a historical quote'):Message=>({id,content,type:0,timestamp:'2016-01-01T00:00:00Z',author:{id:'author',username:'author'}});
 beforeEach(()=>{
-  db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../migrations/0001_initial.sql',import.meta.url),'utf8'));
+  db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../migrations/0001_initial.sql',import.meta.url),'utf8'));db.exec(readFileSync(new URL('../migrations/0002_recaps.sql',import.meta.url),'utf8'));
   env={DB:{prepare:statement,batch:async(stmts:any[])=>{db.exec('BEGIN');try{const r=[];for(const s of stmts)r.push(await s.run());db.exec('COMMIT');return r;}catch(e){db.exec('ROLLBACK');throw e;}}} as any,
     GUILD_ID:'guild',SOURCE_CHANNEL_ID:'source',GAME_CHANNEL_ID:'game',DISCORD_APPLICATION_ID:'bot',DISCORD_TOKEN:'test-token',TIME_ZONE:'America/New_York',DISCORD_PUBLIC_KEY:''};
 });
@@ -61,6 +61,9 @@ describe('resumable history and daily lifecycle',()=>{
     const payload=JSON.parse(fetcher.mock.calls[0][1].body);
     expect(payload.components).toEqual([]);
     expect(payload.embeds[0].description).toContain('<@author>');
+    expect(db.prepare('SELECT COUNT(*) AS n FROM recaps').get()).toMatchObject({n:1});
+    await revealOldRounds(env);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM recaps').get()).toMatchObject({n:1});
   });
   it('retries a saved result after a failed Discord send without changing the guess',async()=>{
     db.exec("INSERT INTO rounds(id,day,source_id,author_id,content,status) VALUES ('round','2026-09-25','source-message','author','quote','open'); INSERT INTO guesses(round_id,user_id,guessed_id,correct,interaction_id) VALUES ('round','player','author',1,'interaction');");

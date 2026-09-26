@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { gameDay, eligibleMessage, displayQuote, roundPayload } from '../src/game';
+import { gameDay, eligibleMessage, displayQuote, roundPayload, recapPages } from '../src/game';
 import type { Message, Round } from '../src/types';
 
 const message = {id:'123',author:{id:'456',username:'test'},content:'hello world',type:0,timestamp:'2026-09-25T10:00:00Z'} satisfies Message;
@@ -32,5 +32,26 @@ describe('daily game rules',()=>{
     expect(closed.components).toEqual([]);
     expect(closed.embeds[0].description).toContain('<@456>');
     expect(closed.embeds[0].description).toContain('2 of 5');
+  });
+});
+
+
+describe('nightly recaps',()=>{
+  it('lists every correct player before every incorrect player',()=>{
+    const recap=recapPages('2026-09-25',[{user_id:'wrong1',correct:0},{user_id:'right1',correct:1},{user_id:'wrong2',correct:0},{user_id:'right2',correct:1}]).join('\n');
+    expect(recap.indexOf('<@right1>')).toBeLessThan(recap.indexOf('<@wrong1>'));
+    expect(recap.indexOf('<@right2>')).toBeLessThan(recap.indexOf('<@wrong1>'));
+    expect(recap).toContain('4 played · 2 correct · 2 incorrect');
+    for(const id of ['wrong1','right1','wrong2','right2']) expect(recap.split(`<@${id}>`)).toHaveLength(2);
+  });
+  it('paginates a large server without dropping any players or exceeding embed limits',()=>{
+    const players=Array.from({length:500},(_,i)=>({user_id:String(100000000000000000n+BigInt(i)),correct:i%2}));
+    const pages=recapPages('2026-09-25',players);
+    expect(pages.length).toBeGreaterThan(1);
+    expect(pages.every(p=>p.length<=3500)).toBe(true);
+    for(const player of players) expect(pages.join('\n').split(`<@${player.user_id}>`)).toHaveLength(2);
+  });
+  it('handles days with no players',()=>{
+    expect(recapPages('2026-09-25',[])[0]).toContain('0 played · 0 correct · 0 incorrect');
   });
 });

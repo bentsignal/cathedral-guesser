@@ -27,3 +27,19 @@ export function roundPayload(round: Round, revealed = false, total = 0, correct 
     components: revealed ? [] : [{ type: 1, components: [{type: 2, style: 1, label: 'Make my guess', custom_id: `play:${round.id}`}]}],
   };
 }
+
+export function recapPages(day: string, players: {user_id:string;correct:number}[]): string[] {
+  const correct=players.filter(p=>p.correct===1);
+  const wrong=players.filter(p=>p.correct!==1);
+  const lines=[`**${day} · Final results**`,`${players.length} played · ${correct.length} correct · ${wrong.length} incorrect`, '',
+    `**🟩 Correct (${correct.length})**`,...(correct.length?correct.map(p=>`🟩 <@${p.user_id}>`):['No correct guesses today.']), '',
+    `**🟥 Incorrect (${wrong.length})**`,...(wrong.length?wrong.map(p=>`🟥 <@${p.user_id}>`):['No incorrect guesses today.'])];
+  const pages:string[]=[];
+  let page='';
+  for(const line of lines) {
+    if(page.length+line.length+1>3500) {pages.push(page);page=`**${day} · Results continued**\n`;}
+    page+=(page?'\n':'')+line;
+  }
+  if(page) pages.push(page);
+  return pages;
+}
