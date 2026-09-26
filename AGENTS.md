@@ -1,5 +1,7 @@
 # Agent workflow
 
+- For another server, follow docs/SETUP.md and use wrangler.example.jsonc with an ignored local config. Existing deployment IDs and npm deployment defaults belong to The Cathedral; do not reuse them.
+
 - Complete changes end to end, including appropriate checks and deployment when requested.
 - Commit and push completed milestones to GitHub without waiting for reminders.
 - Never commit credentials, local environment files, or private Discord data.

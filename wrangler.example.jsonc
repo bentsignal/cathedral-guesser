@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "my-message-guesser",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-25",
+  "account_id": "YOUR_CLOUDFLARE_ACCOUNT_ID",
+  "triggers": { "crons": [] },
+  "vars": {
+    "GUILD_ID": "YOUR_SERVER_ID",
+    "SOURCE_CHANNEL_ID": "YOUR_HISTORY_CHANNEL_ID",
+    "GAME_CHANNEL_ID": "YOUR_GAME_CHANNEL_ID",
+    "TIME_ZONE": "America/New_York",
+    "DISCORD_APPLICATION_ID": "YOUR_APPLICATION_ID",
+    "DISCORD_PUBLIC_KEY": "YOUR_APPLICATION_PUBLIC_KEY"
+  },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "my-message-guesser",
+    "database_id": "YOUR_NEW_DATABASE_ID"
+  }]
+}
