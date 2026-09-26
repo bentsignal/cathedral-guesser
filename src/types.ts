@@ -13,6 +13,7 @@ export interface Member { user: User; nick?: string; permissions?: string }
 export interface Attachment { id: string; url: string; filename: string; content_type?: string; size?: number }
 export interface Preview { title?: string; description?: string; url?: string; type?: string; image?: {url:string}; thumbnail?: {url:string}; author?: {name:string;url?:string}; footer?: {text:string} }
 export interface Media { attachments?: Attachment[]; previews?: Preview[] }
+export interface ContextMessage {text:string;name:string;urls?:string[];media?:Media}
 export interface Message {
   id: string; content: string; author: User; timestamp: string;
   type: number; webhook_id?: string; embeds?: Preview[]; attachments?: Attachment[];

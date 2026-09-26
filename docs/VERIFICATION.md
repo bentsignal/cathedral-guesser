@@ -75,3 +75,10 @@ The midnight transition is covered by date-boundary/DST tests and the same revea
 - Results state the number of guesses, with a blank line before attempt squares and no redundant numeric fraction. Unused squares remain white.
 - User explicitly authorized dismissing completed ephemeral pickers. The dedicated helper reads the interaction response and verifies its ephemeral flag and application author before deleting only that response. General Discord DELETE and bulk-delete remain blocked; no channel-message cleanup was performed. Updated AGENTS.md with this narrow exception.
 - Typecheck and all 55 tests passed, including target-author masking, display names, result spacing, completed-picker dismissal, and refusal to dismiss public or other-application responses. Deployed successfully. Actual private-picker dismissal awaits the user’s next interaction; server UI automation remains prohibited.
+
+## September 26: neighboring media
+
+- New context retains up to two links and two fresh attachments per neighbor, plus available checked link metadata. Target-author neighbors remain `???`; other speakers retain display names.
+- Media context switches the puzzle to ordered message cards: preceding message, bold arrow-marked target, following message. Images appear in their cards; video/files have clickable watch/open links. Available link metadata supplies previews. Text-only context keeps the existing compact layout.
+- Deployed and posted a real practice puzzle in the private test channel with a neighboring photo. Read-only API verification found three cards, the target in the middle, the contextual image first, a Discord-proxied image URL, and the Guess control.
+- Typecheck and all 58 tests passed, including media retention, speaker masking, card ordering, reveal preservation, and Discord embed count/text limits. In-card videos are clickable rather than inline players; visual review remains with the user. No channel messages were deleted.

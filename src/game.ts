@@ -1,4 +1,4 @@
-import type { Message, Round, Guess } from './types';
+import type { Message, Round, Guess, ContextMessage, Preview } from './types';
 import { links, parseMedia, supportedAttachments } from './media';
 export function gameDay(now: Date, timeZone: string): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
@@ -26,13 +26,44 @@ export function roundPayload(round: Round, revealed = false, _total = 0, _correc
   const images=(media.attachments||[]).filter(a=>a.content_type?.startsWith('image/')).map(a=>({image:{url:a.url}}));
   const long=quote.length>900;
   const header=`**${round.day}**${round.practice?' · Practice':''}`;
-  type ContextEntry=string|{text:string;name:string};
+  type ContextEntry=string|ContextMessage;
   let context:{before?:ContextEntry;after?:ContextEntry}={};try{context=JSON.parse(round.context_json||'{}');}catch{}
   const contextLine=(entry?:ContextEntry)=>{
     if(!entry)return '';
     const text=typeof entry==='string'?entry:`${entry.name}: ${entry.text}`;
     return displayQuote(text).split('\n').map(line=>`> ${line}`).join('\n');
   };
+  const hasMedia=(entry?:ContextEntry)=>typeof entry==='object'&&!!(entry.urls?.length||entry.media?.attachments?.length);
+  if(hasMedia(context.before)||hasMedia(context.after)){
+    const cards=(entry:ContextEntry|undefined,target=false):Preview[]=>{
+      if(!entry)return [];
+      const item:ContextMessage=typeof entry==='string'?{text:entry,name:''}:entry;
+      const assets=item.media?.attachments||[];
+      const urls=item.urls||[];
+      let description=target?`➡ **???: ${displayQuote(item.text)}${!item.text&&assets.length?'See attachment below.':''}**`:
+        `${item.name?`**${displayQuote(item.name)}:** `:''}${displayQuote(item.text)}`;
+      // Keep URLs intact and keep the complete message under Discord's embed budget.
+      for(const url of urls){const line=`\n[Open link](${url.replace(/\)/g,'%29')})`;if(description.length+line.length< (target?3700:650))description+=line;}
+      const output:Preview[]=assets.map((asset,index)=>({
+        ...(index===0?{description}:{}),
+        ...(asset.content_type?.startsWith('image/')?{image:{url:asset.url}}:{title:asset.content_type?.startsWith('video/')?'▶ Watch video':'Open attachment',url:asset.url}),
+      }));
+      if(!output.length)output.push({description});
+      const preview=item.media?.previews?.[0];
+      if(urls[0]){
+        const link:Preview={title:displayQuote(preview?.title||'Open link').slice(0,120),url:urls[0],
+          ...(preview?.image?{image:preview.image}:preview?.thumbnail?{thumbnail:preview.thumbnail}:{}),
+          ...(preview?.description?{description:displayQuote(preview.description).slice(0,160)}:{})};
+        if(!assets.length)output[0]={...link,description:[description,link.description].filter(Boolean).join('\n\n')};
+        else if(output.length< (target?4:3))output.push(link);
+      }
+      return output;
+    };
+    const embeds=[...cards(context.before),...cards({name:'???',text:round.content,urls:links(round.content),media},true),...cards(context.after)];
+    return {content:[header,revealed?`**Sent by** <@${round.author_id}> · [Original message](https://discord.com/channels/${guildId}/${sourceChannel}/${round.source_id})`:''].filter(Boolean).join('\n\n'),
+      allowed_mentions:{parse:[]},embeds,
+      components:revealed?[]:[{type:1,components:[{type:2,style:1,label:'Guess',custom_id:`play:${round.id}`}]}]};
+  }
   const attachment=(media.attachments||[]).length>0;
   const target=long?'':`➡ **???: ${quote}${quote&&attachment?'\n':''}${attachment?'See attachment below.':''}**`;
   const content=[header,long?'':contextLine(context.before),target,long?'':contextLine(context.after),...videoLinks,long?links(round.content).join('\n'):'',

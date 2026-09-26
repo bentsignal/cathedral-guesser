@@ -73,3 +73,27 @@ describe('link availability',()=>{
     expect(mock.mock.calls[0][1].method).toBe('HEAD');
   });
 });
+
+it('keeps context media in conversation order and preserves the hidden target speaker',()=>{
+ const photo={id:'p',url:'https://cdn.discordapp.com/attachments/1/2/photo.png',filename:'photo.png',content_type:'image/png'};
+ const video={...photo,id:'v',url:'https://cdn.discordapp.com/attachments/1/2/video.mp4',content_type:'video/mp4'};
+ const context={before:{name:'Alice',text:'look',media:{attachments:[photo]}},after:{name:'???',text:'watch',urls:['https://youtube.com/watch?v=123'],media:{attachments:[video],previews:[{title:'Clip',thumbnail:{url:photo.url}}]}}};
+ const payload=roundPayload({...round,content:'target',context_json:JSON.stringify(context)});
+ expect(payload.embeds[0]).toMatchObject({description:'**Alice:** look',image:{url:photo.url}});
+ expect(payload.embeds[1].description).toContain('➡ **???: target**');
+ expect(payload.embeds[2]).toMatchObject({title:'▶ Watch video',url:video.url});
+ expect(payload.embeds[3]).toMatchObject({title:'Clip',url:context.after.urls[0]});
+ expect(JSON.stringify(payload)).not.toContain('<@author>');
+ expect(payload.components[0].components[0].label).toBe('Guess');
+ const revealed=roundPayload({...round,content:'target',context_json:JSON.stringify(context)},true);
+ expect(revealed.embeds).toEqual(payload.embeds);
+});
+it('keeps media-heavy context within Discord embed limits',()=>{
+ const asset={id:'p',url:'https://cdn.discordapp.com/attachments/1/2/p.png',filename:'p.png',content_type:'image/png'};
+ const media={attachments:Array(2).fill(asset),previews:[{title:'t'.repeat(256),description:'d'.repeat(1600)}]};
+ const entry={name:'n'.repeat(80),text:'x'.repeat(260),urls:['https://www.youtube.com/'+ 'x'.repeat(900)],media};
+ const payload=roundPayload({...round,content:'x'.repeat(3500),media_json:JSON.stringify({...media,attachments:Array(4).fill(asset)}),context_json:JSON.stringify({before:entry,after:entry})});
+ expect(payload.embeds.length).toBeLessThanOrEqual(10);
+ expect(payload.embeds.reduce((n,e)=>n+(e.description?.length||0)+(e.title?.length||0),0)).toBeLessThanOrEqual(6000);
+ expect(payload.embeds.every(e=>(e.description?.length||0)<=4096)).toBe(true);
+});

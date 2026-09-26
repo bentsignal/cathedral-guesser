@@ -98,6 +98,20 @@ describe('resumable history and daily lifecycle',()=>{
     const round=await createRound(env,'practice-context','1');
     expect(JSON.parse(round!.context_json!)).toEqual({before:{text:'hello',name:'Display name'},after:{text:'reply',name:'???'}});
   });
+  it('retains neighboring links and fresh attachments without exposing the target name',async()=>{
+    const attachment={id:'photo',url:'https://cdn.discordapp.com/attachments/1/2/image.png',filename:'image.png',content_type:'image/png'};
+    vi.stubGlobal('fetch',vi.fn(async(url:any)=>{
+      const path=String(url);
+      if(path.startsWith('https://cdn.'))return new Response(null,{status:200});
+      if(path.startsWith('https://www.site.com'))return new Response('<meta property="og:title" content="Page">',{headers:{'Content-Type':'text/html'}});
+      if(path.includes('?before='))return response([{...msg('before','https://www.site.com/page'),attachments:[attachment]}]);
+      if(path.includes('?after='))return response([]);
+      if(path.includes('/members/'))return response({user:{id:'author'}});
+      return response(msg('1'));
+    }));
+    const round=await createRound(env,'practice-context-assets','1');
+    expect(JSON.parse(round!.context_json!).before).toMatchObject({name:'???',urls:['https://www.site.com/page'],media:{attachments:[attachment],previews:[{title:'Page'}]}});
+  });
   it('stores the exact eligible-author list alongside the puzzle',async()=>{
     vi.stubGlobal('fetch',vi.fn(async(url:any)=>String(url).includes('/members/')?response({user:{id:'author'}}):String(url).includes('?')?response([]):response(msg('1'))));
     expect(await createRound(env,'practice-pool','1')).toMatchObject({eligible_authors_json:'["author"]'});
