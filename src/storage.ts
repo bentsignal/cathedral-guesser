@@ -65,7 +65,7 @@ export async function createRound(env: Env, id?: string): Promise<Round | null> 
   if (!(await state(env,'history_complete'))) return null;
   for (let attempt=0;attempt<3;attempt++) {
     const candidate = await env.DB.prepare(`SELECT * FROM messages WHERE eligible=1
-      ORDER BY CASE WHEN used_at IS NULL THEN 0 ELSE 1 END, CASE WHEN used_at IS NOT NULL THEN used_at END, random() LIMIT 1`)
+      ${id ? 'ORDER BY random()' : 'ORDER BY CASE WHEN used_at IS NULL THEN 0 ELSE 1 END, CASE WHEN used_at IS NOT NULL THEN used_at END, random()'} LIMIT 1`)
       .first<{id:string;author_id:string;content:string}>();
     if (!candidate) return null;
     if (!(await currentMember(env,candidate.author_id))) {
@@ -88,7 +88,7 @@ export async function createRound(env: Env, id?: string): Promise<Round | null> 
     await env.DB.batch([
       env.DB.prepare('INSERT OR IGNORE INTO rounds(id,day,practice,source_id,author_id,content) VALUES (?,?,?,?,?,?)')
         .bind(roundId,day,id?1:0,live.id,live.author.id,live.content),
-      env.DB.prepare('UPDATE messages SET used_at=? WHERE id=?').bind(new Date().toISOString(),live.id),
+      ...(id ? [] : [env.DB.prepare('UPDATE messages SET used_at=? WHERE id=?').bind(new Date().toISOString(),live.id)]),
     ]);
     return env.DB.prepare('SELECT * FROM rounds WHERE id=?').bind(roundId).first<Round>();
   }
@@ -118,9 +118,9 @@ export async function revealOldRounds(env: Env) {
         await discord(env,`/channels/${env.GAME_CHANNEL_ID}/messages/${round.discord_id}`,'PATCH',roundPayload(round,true,counts!.total,counts!.correct,env.GUILD_ID,env.SOURCE_CHANNEL_ID));
       } catch (error) { if (!(error instanceof DiscordError && error.status===404)) throw error; }
     }
-    if (!round.practice) {
+    {
       const players=await env.DB.prepare('SELECT user_id,correct FROM guesses WHERE round_id=? ORDER BY correct DESC,created_at,user_id').bind(round.id).all<{user_id:string;correct:number}>();
-      const pages=recapPages(round.day,players.results).map((content,page)=>({content,page}));
+      const pages=recapPages(round.practice ? `${round.day} · Practice` : round.day,players.results).map((content,page)=>({content,page}));
       await env.DB.prepare(`INSERT OR IGNORE INTO recaps(round_id,page,content)
         SELECT ?,json_extract(value,'$.page'),json_extract(value,'$.content') FROM json_each(?)`).bind(round.id,JSON.stringify(pages)).run();
     }
@@ -165,7 +165,7 @@ export async function publishRecaps(env: Env) {
     const found=await existingPost(env,marker);
     const message=found?{id:found}:await discord<{id:string}>(env,`/channels/${env.GAME_CHANNEL_ID}/messages`,'POST',{
       allowed_mentions:noMentions,
-      embeds:[{title:'Cathedral Guesser · Daily recap',color:0xbda477,description:recap.content,footer:{text:marker}}],
+      embeds:[{title:recap.round_id.startsWith('practice-')?'Cathedral Guesser · Practice recap':'Cathedral Guesser · Daily recap',color:0xbda477,description:recap.content,footer:{text:marker}}],
       nonce:await nonce(marker),enforce_nonce:true,
     });
     await env.DB.prepare('UPDATE recaps SET published_id=? WHERE round_id=? AND page=?').bind(message.id,recap.round_id,recap.page).run();

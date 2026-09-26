@@ -1,7 +1,7 @@
 import type { Env, Interaction, Round, Guess } from './types';
 import { discord, noMentions, verifySignature } from './discord';
 import { gameDay } from './game';
-import { createRound, currentMember, maintenance, publishResults, publishRound, state, withLease } from './storage';
+import { createRound, currentMember, maintenance, publishResults, publishRound, publishRecaps, revealOldRounds, state, withLease } from './storage';
 
 const reply = (content: string, components: unknown[] = []) => ({content,components,allowed_mentions:noMentions});
 async function editReply(env: Env, i: Interaction, body: unknown) {
@@ -45,7 +45,7 @@ function isAdmin(i: Interaction) {
 async function command(env: Env, i: Interaction) {
   const sub = i.data?.options?.[0]?.name || 'play';
   if (sub==='play') return showSelector(env,i,gameDay(new Date(),env.TIME_ZONE));
-  if (sub==='help') return reply('**Cathedral Guesser**\nEvery day at midnight Eastern, a historical message becomes a new puzzle. Click **Make my guess**, then pick a current server member. Selection is final: one guess per round.\n\n🟩 / 🟥 results are public; your selection stays private. The author and original message are revealed when the day ends.\n\n`/guesser stats` · your record\n`/guesser leaderboard` · server standings\n`/guesser status` · import and bot health\nAdmins can use `/guesser sync` or `/guesser practice` for testing. Practice does not affect daily standings.');
+  if (sub==='help') return reply('**Cathedral Guesser**\nEvery day at midnight Eastern, a historical message becomes a new puzzle. Click **Make my guess**, then pick a current server member. Selection is final: one guess per round.\n\n🟩 / 🟥 results are public; your selection stays private. The author and original message are revealed when the day ends.\n\n`/guesser stats` · your record\n`/guesser leaderboard` · server standings\n`/guesser status` · import and bot health\nAdmins can use `/guesser sync`, `/guesser practice`, and `/guesser finish-practice` for testing. Practice does not affect daily standings.');
   if (sub==='stats') {
     const stats = await env.DB.prepare(`SELECT COUNT(*) AS played, COALESCE(SUM(g.correct),0) AS wins FROM guesses g
       JOIN rounds r ON r.id=g.round_id WHERE g.user_id=? AND r.practice=0`).bind(i.member!.user.id).first<{played:number;wins:number}>();
@@ -64,6 +64,17 @@ async function command(env: Env, i: Interaction) {
   if (sub==='sync') {
     await maintenance(env);
     return reply('Maintenance requested: import a page of history, retry pending results, and post today’s puzzle when the full archive is ready. Use `/guesser status` to check progress.');
+  }
+  if (sub==='finish-practice') {
+    const ended=await withLease(env,'maintenance',async()=> {
+      const active=await env.DB.prepare("SELECT id FROM rounds WHERE practice=1 AND status='open' ORDER BY created_at DESC,id DESC LIMIT 1").first<{id:string}>();
+      if (!active) return false;
+      await env.DB.prepare("UPDATE rounds SET status='closed' WHERE id=?").bind(active.id).run();
+      await revealOldRounds(env);
+      await publishRecaps(env);
+      return true;
+    });
+    return reply(ended?'Practice round closed. Its author is revealed and the player recap is queued. Daily scores are unchanged.':'No open practice round found, or maintenance is running.');
   }
   if (sub==='practice') {
     const round = await withLease(env,'maintenance',async()=> {

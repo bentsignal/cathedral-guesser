@@ -27,6 +27,7 @@ Every day at **midnight America/New_York** (including daylight saving changes), 
 | `/guesser status` | Archive progress and last successful maintenance |
 | `/guesser sync` | Admin: run one maintenance/import batch |
 | `/guesser practice` | Admin: post a practice puzzle |
+| `/guesser finish-practice` | Admin: reveal and recap the latest open practice round |
 
 Administrative commands require **Manage Server** or Administrator permission. The bot itself does **not** need Administrator.
 

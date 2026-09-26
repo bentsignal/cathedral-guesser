@@ -53,6 +53,16 @@ describe('resumable history and daily lifecycle',()=>{
     expect(await createRound(env)).toBeNull();
     expect(db.prepare("SELECT eligible FROM messages WHERE id='1'").get()).toMatchObject({eligible:0});
   });
+  it('practice rounds do not consume the daily unused-message pool',async()=>{
+    db.exec("INSERT INTO state VALUES ('history_complete','1'); INSERT INTO messages(id,author_id,content,timestamp) VALUES ('1','author','quote','2016');");
+    vi.stubGlobal('fetch',vi.fn(async(url:any)=>String(url).includes('/members/')?response({user:{id:'author',username:'author'}}):response(msg('1'))));
+    const practice=await createRound(env,'practice-test');
+    expect(practice?.practice).toBe(1);
+    expect(db.prepare("SELECT used_at FROM messages WHERE id='1'").get()).toMatchObject({used_at:null});
+    const daily=await createRound(env);
+    expect(daily?.practice).toBe(0);
+    expect(db.prepare("SELECT used_at FROM messages WHERE id='1'").get()?.used_at).not.toBeNull();
+  });
   it('closes the old puzzle, removes controls and reveals the original author',async()=>{
     db.exec("INSERT INTO rounds(id,day,source_id,author_id,content,status,discord_id) VALUES ('old','2000-01-01','source-message','author','quote','open','public-post');");
     const fetcher=vi.fn().mockResolvedValue(response({}));vi.stubGlobal('fetch',fetcher);
