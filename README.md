@@ -61,7 +61,7 @@ npx wrangler login
 npx wrangler d1 create cathedral-guesser
 ```
 
-Update `wrangler.jsonc` with your new database ID, guild/source/game channel IDs, Discord application ID and public key. These IDs and the verification public key are not credentials. The current checked-in configuration targets The Cathedral’s private admin test channel, with scheduled posting disabled.
+Update `wrangler.jsonc` with your new database ID, guild/source/game channel IDs, Discord application ID and public key. These IDs and the verification public key are not credentials. The current checked-in configuration targets The Cathedral’s live `games` channel, with five-minute scheduled maintenance and a midnight Eastern daily reset.
 
 1. In the Discord developer portal, enable **Message Content Intent** and **Server Members Intent**. The member picker uses the REST member-list endpoint; no Gateway connection or Presence intent is needed.
 2. Install the bot with the `bot` and `applications.commands` scopes. Required permissions: **View Channels**, **Read Message History**, **Send Messages**, **Embed Links** (integer `84992`). Restrict channel access to the intended source and game channels if desired.
@@ -84,18 +84,18 @@ Update `wrangler.jsonc` with your new database ID, guild/source/game channel IDs
 
 Never commit `.dev.vars`, `.env` files, credentials, downloaded message archives, or database exports. `.gitignore` excludes local secret files and Wrangler state. GitHub Actions only runs checks and a dry-run build; deployment credentials are not stored in GitHub.
 
-## Moving to The Cathedral later
+## Live and testing data
 
-The testing deployment is intentionally isolated. Provision a **separate Worker and D1 database** for The Cathedral and set its guild and channel IDs. Install the same application there, register its guild commands, and switch the application’s interactions endpoint to that Worker when ready. A Discord application has one interactions endpoint: use a second Discord application to keep independent testing and production bots active simultaneously. Do not just replace the channel IDs on a database containing another server’s archive.
+The same bot and Worker now use the dedicated `cathedral-guesser-cathedral-live` D1 database. Live standings start empty. Only the source-history timestamp, author-count cache, exclusions and search cooldown were carried over; no testing puzzles, guesses or recaps were copied.
 
-The production setup should restrict the bot to the everything channel and a dedicated game channel, then verify history search with a practice round. Existing testing scores should not carry over.
+The former `cathedral-guesser-cathedral-test` database and private testing channel are preserved as archives. Archived puzzle controls will report that their rounds are closed/unavailable because the active Worker uses the live database. Practice rounds created in the live deployment still remain excluded from daily statistics.
 
 ## Operations
 
 - `/health` is a minimal HTTP liveness endpoint; it does not expose archive contents, answers, tokens, or database access.
 - `/guesser-admin status` reports the last successful scheduled/manual maintenance run.
 - Use `npx wrangler tail` (requires tail permission) or the Cloudflare dashboard for runtime diagnostics.
-- The normal schedule is `*/5 * * * *`; the current deployment has an empty Cron array for manual-only testing.
+- The schedule is `*/5 * * * *`; the first tick at midnight Eastern starts the new game day and closes yesterday’s puzzle.
 - Rate-limited or indexing searches pause and retry automatically. Failed result posts remain queued.
 - Search requests are bounded per run. No paid plan is enabled; free-tier usage is shared with other applications on the account.
 - No paid plan or always-running Railway service is required by this architecture.
@@ -110,10 +110,10 @@ npx wrangler deploy --dry-run
 
 Tests exercise real SQLite constraints, signature validation, date boundaries, history sampling, rate-limit recovery, answer reveal, and durable result delivery. External Discord responses are mocked; live Discord testing is also needed after installation.
 
-## Current testing deployment
+## Current live deployment
 
-The bot is configured for The Cathedral, sourcing `everything` and posting only in the private admin test channel. Automatic daily posting is disabled during this test. The former Shawn’s Server database is retained separately. See [verification notes](docs/VERIFICATION.md) for what was tested. Use `/guesser-admin practice` followed by `/guesser-admin finish-practice` to test the full loop without changing daily standings. Because it uses HTTP interactions without a Gateway connection, the bot may appear offline in Discord even while its buttons and commands work.
+The bot sources `everything` and posts daily puzzles, results and recaps in `games` (channel `1387873171813957673`). The daily schedule is enabled. Earlier testing databases and channels remain untouched. See [verification notes](docs/VERIFICATION.md) for validation. Because it uses HTTP interactions without a Gateway connection, the bot may appear offline in Discord even while its buttons and commands work.
 
-The Cathedral policy: no computer-use UI automation in the server, no message/channel deletion, and no public game-channel posting until separately authorized. The general Discord API helper blocks DELETE and bulk-delete requests. A separate, explicitly authorized helper may dismiss only this application’s completed ephemeral picker after verifying its private flag and author. Command registration upserts commands without bulk deletion.
+The Cathedral policy: no computer-use UI automation in the server, no message/channel deletion, and live posting only in the authorized `games` channel. The general Discord API helper blocks DELETE and bulk-delete requests. A separate, explicitly authorized helper may dismiss only this application’s completed ephemeral picker after verifying its private flag and author. Command registration upserts commands without bulk deletion.
 
 Migration 0005 preserves existing rounds and results under their original one-guess rules. Newly created rounds use three guesses and context. Practice rounds remain excluded from daily stats.

@@ -1,14 +1,14 @@
 {
   "name": "cathedral-guesser",
   "version": "1.0.0",
-  "description": "A daily one-guess Discord history game on Cloudflare Workers",
+  "description": "A daily three-guess Discord history game on Cloudflare Workers",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "tsc",
     "test": "vitest run",
     "check": "npm run typecheck && npm test",
-    "db:migrate": "wrangler d1 migrations apply cathedral-guesser-cathedral-test --remote",
+    "db:migrate": "wrangler d1 migrations apply cathedral-guesser-cathedral-live --remote",
     "commands": "node scripts/register-commands.mjs"
   },
   "keywords": [],

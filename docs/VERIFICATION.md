@@ -88,3 +88,11 @@ The midnight transition is covered by date-boundary/DST tests and the same revea
 - At the user's request, restored compact text context with `[link]` and `[Attachment]` placeholders. Display names and the bold `➡ ???:` target remain; target media still displays normally.
 - Existing saved media context renders as placeholders without deleting stored records. Updated the current private practice post in place and verified its compact format through the API.
 - Deployed successfully. Typecheck and all 56 tests pass, including saved-media-context compatibility and preservation of target attachments. No messages were deleted.
+
+## September 26: live launch
+
+- User authorized launch to `games` (1387873171813957673) and requested that testing not affect standings. Confirmed the bot has View Channel, Read Message History, Send Messages and Embed Links permissions through read-only API checks.
+- Created `cathedral-guesser-cathedral-live` and applied migrations. Kept the testing databases and Discord channel intact. Copied only author-count/source settings and exclusions; verified zero rounds and guesses before launch. One existing Worker/application now points to this clean live database.
+- Enabled five-minute scheduled maintenance; game-day boundaries remain midnight America/New_York. Deployed version `4300b389-6725-413f-8c24-955683fa0150` with the live channel and database bindings.
+- Ran maintenance and verified the first daily (not practice) puzzle is open in `games`, with three guesses, 25 choices, and the correct Guess control. Verified successful maintenance state, zero practice rounds and Worker health. Testing results were not transferred.
+- Typecheck and all 56 tests passed before deployment. No channel messages or archived testing records were deleted. The next real midnight transition remains to occur; date-boundary/DST behavior is covered by existing tests.

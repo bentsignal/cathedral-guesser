@@ -5,12 +5,14 @@
   "compatibility_date": "2026-09-25",
   "account_id": "12f3bac77e8f2b140391cd4f79c766ad",
   "triggers": {
-    "crons": []
+    "crons": [
+      "*/5 * * * *"
+    ]
   },
   "vars": {
     "GUILD_ID": "156935745314095105",
     "SOURCE_CHANNEL_ID": "156935745314095105",
-    "GAME_CHANNEL_ID": "1553417537457496154",
+    "GAME_CHANNEL_ID": "1387873171813957673",
     "TIME_ZONE": "America/New_York",
     "DISCORD_APPLICATION_ID": "1553236610722832406",
     "DISCORD_PUBLIC_KEY": "a597649d82356d7e8a523416a77b0782b1f7df1432cd3ba7e6b76dd07fd3cb1c"
@@ -18,8 +20,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "cathedral-guesser-cathedral-test",
-      "database_id": "a674e56f-0492-4ae3-a63c-cbcc2e1a8429"
+      "database_name": "cathedral-guesser-cathedral-live",
+      "database_id": "a1b7763b-10fd-46c7-9ec0-5c3022ced8dd"
     }
   ]
 }
