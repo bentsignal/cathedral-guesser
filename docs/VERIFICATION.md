@@ -96,3 +96,9 @@ The midnight transition is covered by date-boundary/DST tests and the same revea
 - Enabled five-minute scheduled maintenance; game-day boundaries remain midnight America/New_York. Deployed version `4300b389-6725-413f-8c24-955683fa0150` with the live channel and database bindings.
 - Ran maintenance and verified the first daily (not practice) puzzle is open in `games`, with three guesses, 25 choices, and the correct Guess control. Verified successful maintenance state, zero practice rounds and Worker health. Testing results were not transferred.
 - Typecheck and all 56 tests passed before deployment. No channel messages or archived testing records were deleted. The next real midnight transition remains to occur; date-boundary/DST behavior is covered by existing tests.
+
+## September 26: alternate-account exclusion
+
+- Applied the user's additional account exclusion through the existing live source-scoped setting. Future target selection and choices now exclude that account; the requested primary account remains eligible.
+- Verified the excluded account is not today's answer before removing it from today's saved choice pool. The current puzzle remains open with 24 choices, its correct author selectable and its three-guess limit unchanged. No attempts, scores, source messages or puzzle content were modified.
+- This was a live configuration change using existing functionality; no Worker redeployment was needed. Already-open private menus refresh on reopening or when an excluded option is submitted, without consuming that selection.
