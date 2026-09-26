@@ -1,5 +1,5 @@
 import type { Env, Interaction, Round, Guess } from './types';
-import { discord, noMentions, verifySignature } from './discord';
+import { discord, dismissPrivatePicker, noMentions, verifySignature } from './discord';
 import {INSERT_ATTEMPT} from './attempts';
 import {roster,memberControls} from './members';
 import { gameDay, resultSquares } from './game';
@@ -31,7 +31,7 @@ async function submitGuess(env: Env, i: Interaction, roundId: string,expected=0)
   const saved = await env.DB.prepare(INSERT_ATTEMPT)
     .bind(userId,guessed,expected,guessed,i.id,roundId,gameDay(new Date(),env.TIME_ZONE),expected,userId,expected,userId).first<{attempt:number;correct:number}>();
   const finished=await env.DB.prepare('SELECT * FROM guesses WHERE round_id=? AND user_id=?').bind(roundId,userId).first<Guess>();
-  if(finished)return reply('Guess submitted.');
+  if(finished)return null;
   return showSelector(env,i,roundId,0,saved?'Not quite.':'That selection was already handled.');
 }
 function isAdmin(i: Interaction) {
@@ -99,10 +99,11 @@ async function handle(env: Env, i: Interaction) {
       else if (action==='members') body=await showSelector(env,i,id,Number(parts[1]||0));
       else body=reply('That control is no longer supported. Try `/guesser play`.');
     }
-    await editReply(env,i,body);
+    if(body!==null)await editReply(env,i,body);
     if (i.data?.custom_id?.startsWith('guess:')) {
       try { await publishResults(env); }
       catch { console.error('Public result delivery deferred to scheduled retry'); }
+      if(body===null)await dismissPrivatePicker(env,i.token);
     }
   } catch (error) {
     console.error('Interaction failed',error instanceof Error ? error.name : 'UnknownError');

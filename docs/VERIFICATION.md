@@ -68,3 +68,10 @@ The midnight transition is covered by date-boundary/DST tests and the same revea
 - Added a source-scoped author exclusion setting in D1 state. It applies before count checks and governs both new target selection and the saved choice pool. Account IDs stay in private configuration, outside the public repository.
 - Configured the three requested exclusions and deployed. A fresh private practice puzzle has exactly 25 choices in one dropdown, with its answer included and all excluded accounts absent. Existing rounds and messages were preserved.
 - Typecheck and all 52 tests passed, including exclusion application and source-channel isolation.
+
+## September 26: speaker context and finished-picker dismissal
+
+- New context stores the other speaker’s display name; neighboring messages from the target author use `???`. Legacy anonymous context remains readable. Verified a fresh private practice post has two labeled context entries and 25 eligible choices.
+- Results state the number of guesses, with a blank line before attempt squares and no redundant numeric fraction. Unused squares remain white.
+- User explicitly authorized dismissing completed ephemeral pickers. The dedicated helper reads the interaction response and verifies its ephemeral flag and application author before deleting only that response. General Discord DELETE and bulk-delete remain blocked; no channel-message cleanup was performed. Updated AGENTS.md with this narrow exception.
+- Typecheck and all 55 tests passed, including target-author masking, display names, result spacing, completed-picker dismissal, and refusal to dismiss public or other-application responses. Deployed successfully. Actual private-picker dismissal awaits the user’s next interaction; server UI automation remains prohibited.

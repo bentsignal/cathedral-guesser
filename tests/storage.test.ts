@@ -86,6 +86,18 @@ describe('resumable history and daily lifecycle',()=>{
     const fetcher=vi.fn().mockResolvedValue(response(msg('1')));vi.stubGlobal('fetch',fetcher);
     expect(await createRound(env,'practice-excluded','1')).toBeNull();expect(fetcher).toHaveBeenCalledTimes(1);
   });
+  it('labels other speakers by nickname and hides the target author in context',async()=>{
+    vi.stubGlobal('fetch',vi.fn(async(url:any)=>{
+      const path=String(url);
+      if(path.includes('?before='))return response([{...msg('before','hello'),author:{id:'other',username:'handle'}}]);
+      if(path.includes('?after='))return response([msg('after','reply')]);
+      if(path.includes('/members/other'))return response({user:{id:'other',username:'handle'},nick:'Display name'});
+      if(path.includes('/members/'))return response({user:{id:'author'}});
+      return response(msg('1'));
+    }));
+    const round=await createRound(env,'practice-context','1');
+    expect(JSON.parse(round!.context_json!)).toEqual({before:{text:'hello',name:'Display name'},after:{text:'reply',name:'???'}});
+  });
   it('stores the exact eligible-author list alongside the puzzle',async()=>{
     vi.stubGlobal('fetch',vi.fn(async(url:any)=>String(url).includes('/members/')?response({user:{id:'author'}}):String(url).includes('?')?response([]):response(msg('1'))));
     expect(await createRound(env,'practice-pool','1')).toMatchObject({eligible_authors_json:'["author"]'});

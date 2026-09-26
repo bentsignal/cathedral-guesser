@@ -5,6 +5,7 @@ import { eligibleMessage, gameDay, roundPayload, recapPages, resultPayload, reca
 import { parseMedia, validateMedia } from './media';
 import {finalizeUnfinished} from './attempts';
 import {eligibleAuthors} from './eligibility';
+import {memberName} from './members';
 import { sampleCandidates } from './sampling';
 
 export async function state(env: Env, key: string): Promise<string | null> {
@@ -65,7 +66,13 @@ export async function createRound(env: Env, id?: string, sourceId?: string): Pro
     const before=await discord<Message[]>(env,`/channels/${env.SOURCE_CHANNEL_ID}/messages?before=${live.id}&limit=1`);
     const after=await discord<Message[]>(env,`/channels/${env.SOURCE_CHANNEL_ID}/messages?after=${live.id}&limit=1`);
     const contextText=(m?:Message)=>m?((m.content||'').replace(/https?:\/\/[^\s<>]+/g,'[link]').slice(0,260)+(m.content.length>260?'…':'') || (m.attachments?.length?'[Attachment]':'')):undefined;
-    const context=JSON.stringify({before:contextText(before[0]),after:contextText(after[0])});
+    const contextEntry=async(m?:Message)=>{
+      const text=contextText(m);if(!m||!text)return undefined;
+      if(m.author.id===live.author.id)return {text,name:'???'};
+      const member=pool.members.find(person=>person.user.id===m.author.id)||await currentMember(env,m.author.id);
+      return {text,name:(member?memberName(member):m.author.global_name||m.author.username).slice(0,80)};
+    };
+    const context=JSON.stringify({before:await contextEntry(before[0]),after:await contextEntry(after[0])});
     // Reserve room for context without disqualifying a long target message.
     const preview={id:roundId,day,practice:id?1:0,source_id:live.id,author_id:live.author.id,content:live.content,media_json:JSON.stringify(media),context_json:context,guess_limit:3,status:'pending',discord_id:null,revealed:0};
     const safeContext=roundPayload(preview).content.length<=2000?context:'{}';

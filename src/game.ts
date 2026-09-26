@@ -26,8 +26,13 @@ export function roundPayload(round: Round, revealed = false, _total = 0, _correc
   const images=(media.attachments||[]).filter(a=>a.content_type?.startsWith('image/')).map(a=>({image:{url:a.url}}));
   const long=quote.length>900;
   const header=`**${round.day}**${round.practice?' · Practice':''}`;
-  let context:{before?:string;after?:string}={};try{context=JSON.parse(round.context_json||'{}');}catch{}
-  const contextLine=(text?:string)=>text?displayQuote(text).split('\n').map(line=>`> ${line}`).join('\n'):'';
+  type ContextEntry=string|{text:string;name:string};
+  let context:{before?:ContextEntry;after?:ContextEntry}={};try{context=JSON.parse(round.context_json||'{}');}catch{}
+  const contextLine=(entry?:ContextEntry)=>{
+    if(!entry)return '';
+    const text=typeof entry==='string'?entry:`${entry.name}: ${entry.text}`;
+    return displayQuote(text).split('\n').map(line=>`> ${line}`).join('\n');
+  };
   const attachment=(media.attachments||[]).length>0;
   const target=long?'':`➡ **${quote}${quote&&attachment?'\n':''}${attachment?'See attachment below.':''}**`;
   const content=[header,long?'':contextLine(context.before),target,long?'':contextLine(context.after),...videoLinks,long?links(round.content).join('\n'):'',
@@ -43,7 +48,9 @@ export function resultSquares(correct:number,used=1,limit=3):string {
   return '🟥'.repeat(Math.max(0,used-(correct?1:0)))+(correct?'🟩':'')+'⬜'.repeat(Math.max(0,limit-used));
 }
 export function resultPayload(guess: Guess, round: Round) {
-  return {allowed_mentions:{parse:[]},embeds:[{description:`<@${guess.user_id}> ${guess.correct?'got it right.':'got it wrong.'}${(round.guess_limit||1)>1?`\n${resultSquares(guess.correct,guess.attempts_used||1,round.guess_limit)} ${guess.correct?guess.attempts_used||1:'X'}/${round.guess_limit}`:''}`,footer:{text:roundTitle(round)},color:guess.correct?0x57b382:0xca7a76}]};
+  const used=guess.attempts_used||1,limit=round.guess_limit||1;
+  const outcome=guess.correct?`got it right in ${used} ${used===1?'guess':'guesses'}.`:`didn’t get it in ${used} ${used===1?'guess':'guesses'}.`;
+  return {allowed_mentions:{parse:[]},embeds:[{description:`<@${guess.user_id}> ${outcome}${limit>1?`\n\n${resultSquares(guess.correct,used,limit)}`:''}`,footer:{text:roundTitle(round)},color:guess.correct?0x57b382:0xca7a76}]};
 }
 export function recapPages(_day: string, players: {user_id:string;correct:number;attempts_used?:number}[],limit=1): string[] {
   const correct=players.filter(p=>p.correct===1),wrong=players.filter(p=>p.correct!==1);

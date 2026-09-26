@@ -17,6 +17,14 @@ export async function discord<T>(env: Env, path: string, method = 'GET', body?: 
   }
   return (response.status === 204 ? undefined : await response.json()) as T;
 }
+// Narrow exception: only this application's ephemeral interaction response.
+export async function dismissPrivatePicker(env:Env,token:string):Promise<void>{
+  const path=`/webhooks/${env.DISCORD_APPLICATION_ID}/${encodeURIComponent(token)}/messages/@original`;
+  const message=await discord<{flags:number;author:{id:string}}>(env,path);
+  if(!(message.flags&64)||message.author?.id!==env.DISCORD_APPLICATION_ID)throw new Error('Refusing to dismiss a non-private bot response');
+  const response=await fetch(`https://discord.com/api/v10${path}`,{method:'DELETE',signal:AbortSignal.timeout(10000)});
+  if(!response.ok)throw new DiscordError(response.status);
+}
 export const noMentions = { parse: [] as string[] };
 export async function verifySignature(request: Request, body: string, publicKey: string): Promise<boolean> {
   const sig = request.headers.get('x-signature-ed25519') || '';

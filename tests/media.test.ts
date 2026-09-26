@@ -23,11 +23,18 @@ describe('clean Discord output',()=>{
   });
   it('keeps result and recap text minimal with no visible tracking IDs',()=>{
     const result=resultPayload({round_id:round.id,user_id:'player',guessed_id:'author',correct:1,interaction_id:'long-id',published_id:null},round);
-    expect(result.embeds[0].description).toBe('<@player> got it right.');
+    expect(result.embeds[0].description).toBe('<@player> got it right in 1 guess.');
     expect(result.embeds[0].footer.text).toBe('Cathedral Guesser · 2026-09-26');
     expect(JSON.stringify(result)).not.toContain('long-id');
     expect(recapPayload(round,'**Correct (1)**\n<@player>\n\n**Incorrect (0)**',0).embeds[0].title).toBe('Cathedral Guesser · 2026-09-26 · Recap');
   });
+});
+it('spaces multi-guess results and labels context without revealing the target',()=>{
+  const r={...round,guess_limit:3,context_json:JSON.stringify({before:{name:'A *name*',text:'hello'},after:{name:'???',text:'reply'}})};
+  const result=resultPayload({round_id:r.id,user_id:'player',guessed_id:'author',correct:1,attempts_used:2,interaction_id:'id',published_id:null},r);
+  expect(result.embeds[0].description).toBe('<@player> got it right in 2 guesses.\n\n🟥🟩⬜');
+  const content=roundPayload(r).content;
+  expect(content).toContain('???: reply');expect(content).toContain('hello');expect(content).not.toContain('<@author>');
 });
 describe('link availability',()=>{
   it('blocks local addresses, IPs, userinfo, ports and non-HTTP schemes',()=>{

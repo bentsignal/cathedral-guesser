@@ -9,11 +9,11 @@ A Discord-native daily guessing game on **Cloudflare Workers + D1**. No always-o
 Every day at **midnight America/New_York** (including daylight saving changes), the bot posts a random historical message, image, video, or link. Click **Guess** to open your private member selector. Selecting a name uses one attempt.
 
 - Each player gets up to three guesses; a correct answer ends their round.
-- The picker lists only current human members with more than 100 messages in the source channel, alphabetically in groups of 25 (up to 100 per page). Incorrect guesses show private progress and remove the chosen name. After finishing, the private selector becomes “Guess submitted.”; no message is deleted.
-- A public result appears only after a correct answer or the third miss, e.g. `🟥🟩⬜ 2/3`. Guessed names stay private.
+- The picker lists only current human members with more than 100 messages in the source channel, alphabetically in groups of 25 (up to 100 per page). Incorrect guesses show private progress and remove the chosen name. After finishing, the bot dismisses its private picker after verifying that it is an ephemeral response owned by this application. Channel messages are never deleted.
+- A public result appears only after a correct answer or the third miss, e.g. “got it right in 2 guesses” followed by `🟥🟩⬜`. Guessed names stay private.
 - The nightly recap lists **everyone who played**, with all correct players first and all incorrect players afterward. Long recaps are paginated.
 - At the next reset, yesterday’s original post reveals the author, a link to the source message.
-- Each new puzzle includes short anonymous excerpts of the immediately preceding and following messages, without before/after labels. An arrow and bold text mark the target; attachments use “See attachment below.” Context links are shown as `[link]`, and attachments as `[Attachment]`. Command-like targets (slash commands and common bot prefixes) are excluded.
+- Each new puzzle includes short excerpts of the immediately preceding and following messages, without before/after labels. An arrow and bold text mark the target; attachments use “See attachment below.” Other speakers use their current display name (or account name if no longer a member); the target author is labeled `???`. Context links are shown as `[link]`, and attachments as `[Attachment]`. Command-like targets (slash commands and common bot prefixes) are excluded.
 - Quotes redact user/role and channel mentions; they never ping anyone. Links remain clickable.
 - `/guesser-admin practice` creates an independent practice round. Practice never affects daily standings.
 
@@ -114,6 +114,6 @@ Tests exercise real SQLite constraints, signature validation, date boundaries, h
 
 The bot is configured for The Cathedral, sourcing `everything` and posting only in the private admin test channel. Automatic daily posting is disabled during this test. The former Shawn’s Server database is retained separately. See [verification notes](docs/VERIFICATION.md) for what was tested. Use `/guesser-admin practice` followed by `/guesser-admin finish-practice` to test the full loop without changing daily standings. Because it uses HTTP interactions without a Gateway connection, the bot may appear offline in Discord even while its buttons and commands work.
 
-The Cathedral policy: no computer-use UI automation in the server, no message/channel deletion, and no public game-channel posting until separately authorized. The Discord API helper blocks DELETE and bulk-delete requests. Command registration upserts commands without bulk deletion.
+The Cathedral policy: no computer-use UI automation in the server, no message/channel deletion, and no public game-channel posting until separately authorized. The general Discord API helper blocks DELETE and bulk-delete requests. A separate, explicitly authorized helper may dismiss only this application’s completed ephemeral picker after verifying its private flag and author. Command registration upserts commands without bulk deletion.
 
 Migration 0005 preserves existing rounds and results under their original one-guess rules. Newly created rounds use three guesses and context. Practice rounds remain excluded from daily stats.
